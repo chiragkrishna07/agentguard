@@ -67,19 +67,26 @@ _RAW_PATTERNS: List[str] = [
 _COMPILED = [re.compile(p, re.IGNORECASE | re.MULTILINE) for p in _RAW_PATTERNS]
 
 
+_B64_SUBSTR = re.compile(r"[A-Za-z0-9+/]{20,}={0,2}")
+
+
 def _preprocess(text: str) -> str:
-    """Decode common obfuscation encodings and append to original text."""
+    """Decode common obfuscation encodings and append decoded content to scan text."""
     extra: List[str] = []
 
-    # Base64
-    try:
-        decoded = base64.b64decode(text.strip() + "==", validate=False).decode(
-            "utf-8", errors="ignore"
-        )
-        if len(decoded) > 10 and decoded.isprintable():
-            extra.append(decoded)
-    except Exception:
-        pass
+    # Base64 — try the whole string first, then extract substrings.
+    # Substring scan catches "translate this: <b64>" style attacks.
+    candidates = [text.strip()]
+    candidates += [m.group() for m in _B64_SUBSTR.finditer(text)]
+    for candidate in candidates:
+        try:
+            decoded = base64.b64decode(candidate + "==", validate=False).decode(
+                "utf-8", errors="ignore"
+            )
+            if len(decoded) > 8 and decoded.isprintable() and decoded != text:
+                extra.append(decoded)
+        except Exception:
+            pass
 
     # URL encoding
     try:

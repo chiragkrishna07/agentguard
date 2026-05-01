@@ -2,7 +2,7 @@
 
 All notable changes to AgentGuard are documented here.
 
-## [0.1.0] — Unreleased
+## [0.1.0] — 2026-05-01
 
 ### Added
 - `Guard` class with `@guard.protect` (async) and `@guard.protect_sync` decorators

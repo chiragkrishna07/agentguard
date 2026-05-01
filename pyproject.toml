@@ -52,10 +52,10 @@ dev = [
 all = ["agentguard[presidio,ml,dev]"]
 
 [project.urls]
-Homepage = "https://github.com/chiragkrishna1732/agentguard"
+Homepage = "https://github.com/chiragkrishna07/agentguard"
 Documentation = "https://agentguard.readthedocs.io"
-Repository = "https://github.com/chiragkrishna1732/agentguard"
-Issues = "https://github.com/chiragkrishna1732/agentguard/issues"
+Repository = "https://github.com/chiragkrishna07/agentguard"
+Issues = "https://github.com/chiragkrishna07/agentguard/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentguard"]

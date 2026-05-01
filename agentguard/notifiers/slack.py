@@ -13,7 +13,7 @@ class SlackNotifier(BaseNotifier):
     async def notify(self, gate_id: str, context: dict) -> None:
         import httpx
 
-        lines = [f"*[AgentGuard] HumanGate — Approval Required*", f"Gate ID: `{gate_id}`"]
+        lines = ["*[AgentGuard] HumanGate — Approval Required*", f"Gate ID: `{gate_id}`"]
         for key, value in context.items():
             lines.append(f"*{key}*: {value}")
 

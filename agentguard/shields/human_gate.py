@@ -10,7 +10,6 @@ import uuid
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
-from agentguard.core.exceptions import HumanGateSyncError
 from agentguard.core.session import SessionContext
 
 if TYPE_CHECKING:

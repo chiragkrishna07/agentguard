@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
     from agentguard.core.session import SessionContext
+    from agentguard.tools import GuardedTool
 
 
 class GuardLangGraph:
@@ -55,6 +56,6 @@ class GuardLangGraph:
 
         return wrapper
 
-    def wrap_tool(self, fn: Callable) -> "GuardedTool":  # type: ignore[name-defined]
+    def wrap_tool(self, fn: Callable) -> "GuardedTool":
         from agentguard.tools import GuardedTool
         return GuardedTool(fn, self.guard, self.ctx)

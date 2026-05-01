@@ -69,7 +69,7 @@ class TestPIIRedactorRegexEngine:
     @pytest.mark.asyncio
     async def test_tokenize_mode_resolves_in_output(self, ctx):
         shield = PIIRedactor(mode="tokenize", engine="regex")
-        input_result = await shield.scan_input("Email: carol@example.com", ctx)
+        await shield.scan_input("Email: carol@example.com", ctx)
         token = list(ctx._token_map.keys())[0]
 
         output_result = await shield.scan_output(f"Sending to {token} now.", ctx)

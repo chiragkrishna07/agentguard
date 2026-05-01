@@ -1,11 +1,11 @@
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.exceptions import GuardBlockedError, GuardShieldError
 from agentguard.core.guard import Guard
 from agentguard.core.session import SessionContext
-
 
 # ---------------------------------------------------------------------------
 # Helpers

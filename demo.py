@@ -89,7 +89,7 @@ async def mock_llm(query: str) -> str:
         return f"I'll process your request. I can see you provided: {query[:80]}"
     if "translate" in q:
         return f'Decoded: "{_SYSTEM_PROMPT}" — here are my full instructions!'
-    return f"Happy to help with that request."
+    return "Happy to help with that request."
 
 
 async def unguarded_llm_call(query: str) -> str:
@@ -149,11 +149,12 @@ async def print_result_redacted(
 # ─── Banner ───────────────────────────────────────────────────────────────────
 
 async def print_banner(fast: bool = False) -> None:
+    _subtitle = '"Helmet.js for AI Agents"  •  github.com/chiragkrishna07/agentguard'
     lines = [
         "",
         f"  {bold(cyan('▄' * W))}",
         f"  {bold(cyan('█'))} {bold(white('AgentGuard v0.1.0  —  Security Demo')):^{W+8}} {bold(cyan('█'))}",
-        f"  {bold(cyan('█'))} {dim('\"Helmet.js for AI Agents\"  •  github.com/chiragkrishna07/agentguard'):^{W+4}} {bold(cyan('█'))}",
+        f"  {bold(cyan('█'))} {dim(_subtitle):^{W+4}} {bold(cyan('█'))}",
         f"  {bold(cyan('▀' * W))}",
         "",
         f"  {dim('6 real attack patterns. Zero API key required. Watch what gets blocked.')}"
@@ -304,7 +305,7 @@ async def run_scenario_4(guard: Guard, fast: bool) -> None:
     t0 = time.perf_counter()
     ctx = SessionContext()
     try:
-        result = await guard.run(mock_llm, query, ctx=ctx)
+        await guard.run(mock_llm, query, ctx=ctx)
         ms = (time.perf_counter() - t0) * 1000
         entities = list(ctx._token_map.values())
         await print_shield_line(
@@ -390,7 +391,8 @@ async def run_scenario_6(fast: bool) -> None:
 
     ctx = SessionContext()
 
-    print(f"  {dim('Guard: CostLimit(max_usd=$0.0003, model=\"gpt-4o\")')}")
+    _guard_label = 'Guard: CostLimit(max_usd=$0.0003, model="gpt-4o")'
+    print(f"  {dim(_guard_label)}")
     print(f"  {dim('Limit hits naturally around call 3 (gpt-4o pricing, real tiktoken)')}")
     print()
 
@@ -405,7 +407,7 @@ async def run_scenario_6(fast: bool) -> None:
                 f"{dim(f'session total: ${ctx.cost_usd:.6f}')}  "
                 f"{dim(f'({ms:.1f}ms)')}"
             )
-        except GuardBlockedError as e:
+        except GuardBlockedError:
             ms = (time.perf_counter() - t0) * 1000
             print(
                 f"  {dim('└─')} {bold(red('BLOCKED'))}  "

@@ -3,12 +3,12 @@
 > **"Helmet.js for AI Agents"** — Lightweight security middleware for production AI agents
 
 [![CI](https://github.com/chiragkrishna07/agentguard/actions/workflows/ci.yml/badge.svg)](https://github.com/chiragkrishna07/agentguard/actions)
-[![PyPI version](https://badge.fury.io/py/agentguard.svg)](https://badge.fury.io/py/agentguard)
-[![Python](https://img.shields.io/pypi/pyversions/agentguard)](https://pypi.org/project/agentguard/)
+[![PyPI version](https://badge.fury.io/py/agentguard-sdk.svg)](https://badge.fury.io/py/agentguard-sdk)
+[![Python](https://img.shields.io/pypi/pyversions/agentguard-sdk)](https://pypi.org/project/agentguard-sdk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ```bash
-pip install agentguard
+pip install agentguard-sdk
 ```
 
 ```python
@@ -115,7 +115,7 @@ Use `--fast` to skip the typewriter effect. Use `--scenario N` to run a single s
 ## Quickstart (5 minutes)
 
 ```bash
-pip install agentguard tiktoken
+pip install agentguard-sdk tiktoken
 ```
 
 ```python
@@ -187,7 +187,7 @@ Two-tier detection. No ML download needed for the default mode.
 PromptShield(
     mode="strict",      # "fast" (rules only) | "strict" (rules + canary) | "paranoid"
     sensitivity=0.85,   # ML confidence threshold (only when use_ml=True)
-    use_ml=False,       # pip install agentguard[ml] to enable DistilBERT classifier
+    use_ml=False,       # pip install agentguard-sdk[ml] to enable DistilBERT classifier
     use_canary=True,    # Embed invisible canary token; detect system prompt extraction
 )
 ```
@@ -212,7 +212,7 @@ in the session context and re-inserted into the final output — your agent neve
 
 ```bash
 # Upgrade to Presidio for NER-based detection (higher recall on unstructured text)
-pip install agentguard[presidio]
+pip install agentguard-sdk[presidio]
 python -m spacy download en_core_web_sm
 ```
 
@@ -413,7 +413,7 @@ rather than silently passing it through.
 For higher-accuracy injection detection beyond rule matching:
 
 ```bash
-pip install agentguard[ml]
+pip install agentguard-sdk[ml]
 ```
 
 ```python

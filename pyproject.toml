@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentguard-sdk"
+name = "pyagentguard"
 version = "0.1.0"
 description = "Helmet.js for AI Agents — Lightweight security middleware for production AI agents"
 readme = "README.md"
@@ -52,7 +52,7 @@ dev = [
     "build>=1.0.0",
     "twine>=5.0.0",
 ]
-all = ["agentguard-sdk[presidio,ml,dev]"]
+all = ["pyagentguard[presidio,ml,dev]"]
 
 [project.urls]
 Homepage = "https://github.com/chiragkrishna07/agentguard"

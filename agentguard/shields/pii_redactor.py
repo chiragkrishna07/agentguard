@@ -36,6 +36,22 @@ _COMPILED: dict[str, Pattern[str]] = {
 }
 
 
+def _luhn_ok(candidate: str) -> bool:
+    """Validate a card number with the Luhn checksum (mod-10)."""
+    digits = [int(c) for c in candidate if c.isdigit()]
+    if not 13 <= len(digits) <= 19:
+        return False
+    checksum = 0
+    parity = len(digits) % 2
+    for i, d in enumerate(digits):
+        if i % 2 == parity:
+            d *= 2
+            if d > 9:
+                d -= 9
+        checksum += d
+    return checksum % 10 == 0
+
+
 class PIIRedactor(BaseShield):
     def __init__(
         self,
@@ -104,8 +120,13 @@ class PIIRedactor(BaseShield):
             if pattern is None:
                 continue
             for m in pattern.finditer(text):
-                if m.end() > m.start():  # ignore zero-width matches
-                    hits.append((m.start(), m.end(), entity))
+                if m.end() <= m.start():  # ignore zero-width matches
+                    continue
+                # Credit cards are validated with the Luhn checksum so arbitrary
+                # 16-digit numbers (order IDs, etc.) aren't redacted as cards.
+                if entity == "CREDIT_CARD" and not _luhn_ok(m.group()):
+                    continue
+                hits.append((m.start(), m.end(), entity))
         return merge_spans(hits)
 
     def _apply_regex_redaction(self, text: str, ctx: SessionContext) -> str | None:

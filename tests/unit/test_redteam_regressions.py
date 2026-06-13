@@ -21,11 +21,12 @@ def ctx():
 class TestPIIOverlapLeak:
     @pytest.mark.asyncio
     async def test_h1_overlapping_dob_and_card_no_leak(self, ctx):
-        # DOB starts before an overlapping credit card; the card tail must not leak.
+        # A DOB ending in 1990 overlaps a Luhn-valid card that starts "1990...".
+        # The narrower DOB span must not shadow the card and leak its tail.
         shield = PIIRedactor(mode="redact")
-        result = await shield.scan_input("12/25/1990 1111 2222 3333", ctx)
+        result = await shield.scan_input("12/25/1990 1111 2222 3337", ctx)
         assert result.modified_input is not None
-        for frag in ("1111", "2222", "3333", "1990"):
+        for frag in ("1111", "2222", "3337", "1990"):
             assert frag not in result.modified_input
 
     @pytest.mark.asyncio

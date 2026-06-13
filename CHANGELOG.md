@@ -2,6 +2,21 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.6.0] — Unreleased
+
+### Added
+- **`SizeLimit`** shield — bounds input / output / tool-output length (chars) to
+  blunt denial-of-wallet and context-stuffing; `on_exceed="block"` or
+  `"truncate"`. Added to the `recommended()` preset.
+- **`GuardOpenAI` validates model-requested tool calls** — when the model
+  returns `tool_calls`, each name + parsed arguments is run through
+  `scan_tool_call` (ToolValidator / HumanGate) before the caller executes them.
+
+### Changed
+- **Credit-card detection now requires a valid Luhn checksum**, so arbitrary
+  16-digit numbers (order IDs, etc.) are no longer redacted as cards — a large
+  false-positive reduction.
+
 ## [0.5.0] — Unreleased
 
 Hardening pass driven by an internal adversarial audit; every item ships with a

@@ -15,6 +15,7 @@ response = await adapter.create(client, model="gpt-4o", messages=[...])
 # Wrap a tool function
 search = adapter.wrap_tool(search_fn)
 """
+import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -46,7 +47,26 @@ class GuardOpenAI:
 
         response = await client.chat.completions.create(**kwargs)
 
-        content = response.choices[0].message.content or ""
+        message = response.choices[0].message
+
+        # Validate any tool calls the model decided to make BEFORE the caller
+        # executes them — this is where ToolValidator / HumanGate get their say
+        # on model-chosen actions and arguments.
+        for call in getattr(message, "tool_calls", None) or []:
+            fn = getattr(call, "function", None)
+            if fn is None:
+                continue
+            name = getattr(fn, "name", "")
+            raw_args = getattr(fn, "arguments", "") or "{}"
+            try:
+                params = json.loads(raw_args)
+            except (json.JSONDecodeError, TypeError):
+                params = {"_raw": raw_args}
+            if not isinstance(params, dict):
+                params = {"_value": params}
+            await self.guard.scan_tool_call(name, params, self.ctx)
+
+        content = message.content or ""
         await self.guard._scan_output(content, self.ctx)
         return response
 

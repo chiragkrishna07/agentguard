@@ -20,6 +20,7 @@ from agentguard.shields.cost_limit import CostLimit
 from agentguard.shields.pii_redactor import PIIRedactor
 from agentguard.shields.prompt_shield import PromptShield
 from agentguard.shields.secrets import SecretsShield
+from agentguard.shields.size_limit import SizeLimit
 
 
 def minimal() -> Guard:
@@ -47,6 +48,7 @@ def recommended(
     leakage redaction. Optional cost ceiling and audit trail.
     """
     shields: list = [
+        SizeLimit(max_input_chars=20_000, max_tool_output_chars=20_000),
         PromptShield(mode="strict", on_indirect="block"),
         SecretsShield(on_detect="redact"),
         PIIRedactor(mode="redact", redact_output=True, scan_tool_output=True),

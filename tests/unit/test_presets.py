@@ -20,6 +20,7 @@ class TestPresets:
     def test_recommended_full_stack(self):
         guard = recommended()
         assert _names(guard) == [
+            "SizeLimit",
             "PromptShield",
             "SecretsShield",
             "PIIRedactor",

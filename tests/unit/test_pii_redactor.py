@@ -45,6 +45,20 @@ class TestPIIRedactorRegexEngine:
         assert "4111" not in result.modified_input
 
     @pytest.mark.asyncio
+    async def test_luhn_invalid_number_not_treated_as_card(self, ctx):
+        # A 16-digit number that fails the Luhn checksum (e.g. an order id).
+        shield = PIIRedactor(mode="redact", engine="regex")
+        result = await shield.scan_input("order ref 1234 5678 9012 3456 shipped", ctx)
+        assert result.modified_input is None  # nothing redacted
+
+    @pytest.mark.asyncio
+    async def test_luhn_valid_number_redacted(self, ctx):
+        shield = PIIRedactor(mode="redact", engine="regex")
+        result = await shield.scan_input("pay with 4242 4242 4242 4242 today", ctx)
+        assert result.modified_input is not None
+        assert "4242" not in result.modified_input
+
+    @pytest.mark.asyncio
     async def test_clean_input_returns_none_modified(self, ctx):
         shield = PIIRedactor(mode="redact", engine="regex")
         result = await shield.scan_input("What is the weather like today?", ctx)

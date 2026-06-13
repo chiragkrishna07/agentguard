@@ -2,6 +2,30 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.5.0] — Unreleased
+
+Hardening pass driven by an internal adversarial audit; every item ships with a
+regression test (`tests/unit/test_redteam_regressions.py`).
+
+### Fixed (security)
+- **PII/secret redaction could leak part of an overlapping value.** Overlapping
+  spans are now merged into their **union** (shared `shields/_spans.py`) and
+  labelled by the widest match, so e.g. a `DATE_OF_BIRTH` overlapping a
+  `CREDIT_CARD` can no longer expose the card's tail. (Supersedes the partial
+  0.1.1 fix.)
+- **`ToolValidator` bypasses closed:**
+  - `required: True` param rules are now enforced — an omitted parameter no
+    longer skips its constraints.
+  - Numeric `min`/`max` coerce numeric strings and **fail closed** on
+    non-numeric values, so `{"amount": "5000"}` can't dodge a cap of 100.
+  - `maxlen`/`pattern` apply to the value's string form (a list/dict can't slip
+    past), and tool-name matching is now **case-insensitive** (`delete_*` also
+    blocks `DELETE_FILE`).
+- **`PromptShield` obfuscation bypasses closed:** base64 payloads embedded
+  mid-sentence are now decoded and scanned, and a compacted/leetspeak-folded
+  matching surface catches `1gn0re`, `i.g.n.o.r.e`, and `ignore-all-previous`
+  style separators — with no false positives on benign text.
+
 ## [0.4.0] — Unreleased
 
 ### Added

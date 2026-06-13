@@ -15,6 +15,7 @@ from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
+from agentguard.shields._spans import merge_spans
 
 # ---------------------------------------------------------------------------
 # Regex patterns — ordered so longer/more-specific patterns match first
@@ -90,7 +91,12 @@ class PIIRedactor(BaseShield):
     # ------------------------------------------------------------------ #
 
     def _regex_find(self, text: str) -> list[tuple[int, int, str]]:
-        """Returns list of (start, end, entity_type) sorted by start position."""
+        """Return (start, end, entity_type) spans, overlaps merged, end-first.
+
+        Overlapping spans are merged into their union so we never leave part of
+        a sensitive value exposed (e.g. a DATE_OF_BIRTH that starts just before
+        an overlapping CREDIT_CARD must not shadow the card's tail).
+        """
         targets = self.entities or list(_COMPILED.keys())
         hits: list[tuple[int, int, str]] = []
         for entity in targets:
@@ -100,23 +106,7 @@ class PIIRedactor(BaseShield):
             for m in pattern.finditer(text):
                 if m.end() > m.start():  # ignore zero-width matches
                     hits.append((m.start(), m.end(), entity))
-
-        # Resolve overlaps before replacing. Without this, two patterns matching
-        # overlapping spans (e.g. an EMAIL whose host is all digits also matches
-        # PHONE_US) corrupt the output and can leak PII fragments. Greedily keep
-        # non-overlapping spans, preferring the earliest start and, on a tie, the
-        # widest match.
-        hits.sort(key=lambda h: (h[0], -(h[1] - h[0])))
-        resolved: list[tuple[int, int, str]] = []
-        last_end = -1
-        for start, end, entity in hits:
-            if start >= last_end:
-                resolved.append((start, end, entity))
-                last_end = end
-
-        # Replace from the end so earlier offsets stay valid.
-        resolved.sort(key=lambda h: h[0], reverse=True)
-        return resolved
+        return merge_spans(hits)
 
     def _apply_regex_redaction(self, text: str, ctx: SessionContext) -> str | None:
         hits = self._regex_find(text)

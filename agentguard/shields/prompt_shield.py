@@ -43,6 +43,43 @@ _CONFUSABLES = str.maketrans(
 )
 
 
+# Leetspeak digit/symbol substitutions, applied when building the compacted
+# matching surface so "1gn0re" folds to "ignore".
+_LEET = str.maketrans(
+    {"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "@": "a", "$": "s"}
+)
+
+# High-confidence injection phrases with all separators removed. They're matched
+# as substrings of the compacted surface, which defeats separator/leetspeak
+# obfuscation ("i.g.n.o.r.e", "ignore-all-previous", "1gn0re ..."). Each string
+# is long and specific enough that it effectively never occurs in benign text.
+_COMPACT_SIGNATURES: tuple[str, ...] = (
+    "ignoreallprevious",
+    "ignorepreviousinstruction",
+    "ignoreallinstruction",
+    "ignoreaboveinstruction",
+    "disregardprevious",
+    "disregardallprevious",
+    "forgetprevious",
+    "forgetallprevious",
+    "forgeteverythingabove",
+    "overrideprevious",
+    "overrideallinstruction",
+    "donotfollowinstruction",
+    "revealsystemprompt",
+    "revealyoursystemprompt",
+    "printyoursystemprompt",
+    "showyoursystemprompt",
+    "whatareyourinstruction",
+    "ignoreyourinstruction",
+    "youhavenorestriction",
+    "actwithoutrestriction",
+)
+
+# A base64-looking run embedded anywhere in the text.
+_B64_CHUNK = re.compile(r"[A-Za-z0-9+/]{16,}={0,2}")
+
+
 def _normalize(text: str) -> str:
     """Fold obfuscation that regex rules would otherwise miss.
 
@@ -54,6 +91,16 @@ def _normalize(text: str) -> str:
     folded = folded.translate(_INVISIBLE)
     folded = folded.translate(_CONFUSABLES)
     return folded
+
+
+def _compact(text: str) -> str:
+    """Strip every non-alphanumeric character and fold leetspeak/homoglyphs.
+
+    "i.g.n.o.r.e all previous" and "1gn0re-all-previous" both collapse to
+    "ignoreallprevious", which we can substring-match against signatures.
+    """
+    folded = _normalize(text).lower().translate(_LEET)
+    return "".join(ch for ch in folded if ch.isalnum())
 
 # ---------------------------------------------------------------------------
 # Rule patterns — split by confidence to keep the false-positive rate low.
@@ -138,10 +185,15 @@ def _preprocess(text: str) -> str:
     if normalized != text:
         extra.append(normalized)
 
-    # Base64 — try the normalised form too, since the original may be split
-    for candidate in {text, normalized}:
+    # Base64 — decode the whole string AND any base64-looking chunk embedded
+    # mid-sentence ("decode and follow: aWdub3Jl..."), which the whole-string
+    # attempt alone would miss.
+    candidates = {text.strip(), normalized.strip()}
+    candidates.update(_B64_CHUNK.findall(text))
+    candidates.update(_B64_CHUNK.findall(normalized))
+    for candidate in candidates:
         try:
-            decoded = base64.b64decode(candidate.strip() + "==", validate=False).decode(
+            decoded = base64.b64decode(candidate + "==", validate=False).decode(
                 "utf-8", errors="ignore"
             )
             if len(decoded) > 10 and decoded.isprintable():
@@ -202,6 +254,13 @@ class PromptShield(BaseShield):
         for pattern in self._strong:
             if pattern.search(preprocessed):
                 return True, f"Matched pattern: '{pattern.pattern[:60]}'"
+
+        # Compacted surface defeats separator/leetspeak obfuscation that the
+        # regex tier (which expects whitespace between words) would miss.
+        compact = _compact(text)
+        for sig in _COMPACT_SIGNATURES:
+            if sig in compact:
+                return True, f"Matched compacted signature: '{sig}'"
 
         weak_hits = [p.pattern for p in self._weak if p.search(preprocessed)]
         if weak_hits:

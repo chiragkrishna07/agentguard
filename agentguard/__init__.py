@@ -29,7 +29,7 @@ from agentguard.shields.secrets import SecretsShield
 from agentguard.shields.tool_validator import ToolValidator
 from agentguard.tools import GuardedTool
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     # Core

@@ -22,6 +22,7 @@ from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
+from agentguard.shields._spans import merge_spans
 
 # ---------------------------------------------------------------------------
 # High-signal credential patterns. Ordered most-specific first.
@@ -87,17 +88,9 @@ class SecretsShield(BaseShield):
             for m in pattern.finditer(text):
                 if m.end() > m.start():
                     hits.append((m.start(), m.end(), name))
-        # Resolve overlaps: keep earliest start, widest on tie (same approach as
-        # PIIRedactor — avoids corrupting output when two patterns overlap).
-        hits.sort(key=lambda h: (h[0], -(h[1] - h[0])))
-        resolved: list[tuple[int, int, str]] = []
-        last_end = -1
-        for start, end, name in hits:
-            if start >= last_end:
-                resolved.append((start, end, name))
-                last_end = end
-        resolved.sort(key=lambda h: h[0], reverse=True)
-        return resolved
+        # Merge overlaps into their union so no secret character can survive in
+        # the gap between two overlapping matches (see shields/_spans.py).
+        return merge_spans(hits)
 
     def _scan(self, text: str) -> ShieldResult:
         hits = self._find(text)

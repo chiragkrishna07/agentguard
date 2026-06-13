@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 import time
-from typing import Literal, Optional
+from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -24,7 +24,7 @@ class AuditLogger(BaseShield):
         self.output = output
         self.path = path
         self.include_input_hash = include_input_hash
-        self._logger: Optional[logging.Logger] = None
+        self._logger: logging.Logger | None = None
 
     def _get_logger(self) -> logging.Logger:
         if self._logger is None:

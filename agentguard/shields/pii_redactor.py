@@ -10,7 +10,8 @@ Requires: pip install agentguard[presidio]
 """
 import re
 import uuid
-from typing import Dict, List, Literal, Optional, Pattern, Tuple
+from re import Pattern
+from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -18,7 +19,7 @@ from agentguard.core.session import SessionContext
 # ---------------------------------------------------------------------------
 # Regex patterns — ordered so longer/more-specific patterns match first
 # ---------------------------------------------------------------------------
-_REGEX_PATTERNS: Dict[str, str] = {
+_REGEX_PATTERNS: dict[str, str] = {
     "SSN": r"\b\d{3}-\d{2}-\d{4}\b",
     "CREDIT_CARD": r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
     "EMAIL": r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
@@ -28,7 +29,7 @@ _REGEX_PATTERNS: Dict[str, str] = {
     "DATE_OF_BIRTH": r"\b(?:0?[1-9]|1[0-2])[/\-](?:0?[1-9]|[12]\d|3[01])[/\-](?:19|20)\d{2}\b",
 }
 
-_COMPILED: Dict[str, Pattern[str]] = {
+_COMPILED: dict[str, Pattern[str]] = {
     entity: re.compile(pattern, re.IGNORECASE)
     for entity, pattern in _REGEX_PATTERNS.items()
 }
@@ -37,7 +38,7 @@ _COMPILED: Dict[str, Pattern[str]] = {
 class PIIRedactor(BaseShield):
     def __init__(
         self,
-        entities: Optional[List[str]] = None,
+        entities: list[str] | None = None,
         mode: Literal["redact", "mask", "tokenize"] = "redact",
         language: str = "en",
         score_threshold: float = 0.6,
@@ -82,21 +83,36 @@ class PIIRedactor(BaseShield):
     # Regex engine                                                         #
     # ------------------------------------------------------------------ #
 
-    def _regex_find(self, text: str) -> List[Tuple[int, int, str]]:
+    def _regex_find(self, text: str) -> list[tuple[int, int, str]]:
         """Returns list of (start, end, entity_type) sorted by start position."""
         targets = self.entities or list(_COMPILED.keys())
-        hits: List[Tuple[int, int, str]] = []
+        hits: list[tuple[int, int, str]] = []
         for entity in targets:
             pattern = _COMPILED.get(entity)
             if pattern is None:
                 continue
             for m in pattern.finditer(text):
-                hits.append((m.start(), m.end(), entity))
-        # Sort descending by start so replacements don't shift offsets
-        hits.sort(key=lambda x: x[0], reverse=True)
-        return hits
+                if m.end() > m.start():  # ignore zero-width matches
+                    hits.append((m.start(), m.end(), entity))
 
-    def _apply_regex_redaction(self, text: str, ctx: SessionContext) -> Optional[str]:
+        # Resolve overlaps before replacing. Without this, two patterns matching
+        # overlapping spans (e.g. an EMAIL whose host is all digits also matches
+        # PHONE_US) corrupt the output and can leak PII fragments. Greedily keep
+        # non-overlapping spans, preferring the earliest start and, on a tie, the
+        # widest match.
+        hits.sort(key=lambda h: (h[0], -(h[1] - h[0])))
+        resolved: list[tuple[int, int, str]] = []
+        last_end = -1
+        for start, end, entity in hits:
+            if start >= last_end:
+                resolved.append((start, end, entity))
+                last_end = end
+
+        # Replace from the end so earlier offsets stay valid.
+        resolved.sort(key=lambda h: h[0], reverse=True)
+        return resolved
+
+    def _apply_regex_redaction(self, text: str, ctx: SessionContext) -> str | None:
         hits = self._regex_find(text)
         if not hits:
             return None
@@ -120,7 +136,7 @@ class PIIRedactor(BaseShield):
     # Presidio engine                                                      #
     # ------------------------------------------------------------------ #
 
-    def _apply_presidio_redaction(self, text: str, ctx: SessionContext) -> Optional[str]:
+    def _apply_presidio_redaction(self, text: str, ctx: SessionContext) -> str | None:
         from presidio_anonymizer.entities import OperatorConfig
 
         analyzer = self._get_analyzer()

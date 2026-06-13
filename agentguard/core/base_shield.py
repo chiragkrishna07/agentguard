@@ -1,6 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agentguard.core.session import SessionContext
@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 @dataclass
 class ShieldResult:
     allowed: bool
-    modified_input: Optional[str] = None
-    reason: Optional[str] = None
-    reason_code: Optional[str] = None
+    modified_input: str | None = None
+    reason: str | None = None
+    reason_code: str | None = None
 
 
 class BaseShield(ABC):

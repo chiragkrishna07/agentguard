@@ -13,11 +13,13 @@ result = await adapter.kickoff(crew, inputs={"topic": "AI security"})
 # Wrap a tool function
 search = adapter.wrap_tool(search_fn)
 """
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
     from agentguard.core.session import SessionContext
+    from agentguard.tools import GuardedTool
 
 
 class GuardCrewAI:
@@ -30,7 +32,7 @@ class GuardCrewAI:
         from agentguard.core.session import SessionContext as _Ctx
         self.ctx = ctx or _Ctx()
 
-    async def kickoff(self, crew: Any, inputs: Optional[Dict[str, Any]] = None) -> Any:
+    async def kickoff(self, crew: Any, inputs: dict[str, Any] | None = None) -> Any:
         """Scan text inputs before crew kickoff. Works with both sync and async crews."""
         import asyncio
 
@@ -44,6 +46,6 @@ class GuardCrewAI:
             return await crew.kickoff(inputs=inputs)
         return crew.kickoff(inputs=inputs)
 
-    def wrap_tool(self, fn: Callable) -> "GuardedTool":  # type: ignore[name-defined]
+    def wrap_tool(self, fn: Callable) -> "GuardedTool":
         from agentguard.tools import GuardedTool
         return GuardedTool(fn, self.guard, self.ctx)

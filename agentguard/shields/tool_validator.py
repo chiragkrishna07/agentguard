@@ -1,6 +1,6 @@
 import fnmatch
 import re
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -26,9 +26,9 @@ class ToolValidator(BaseShield):
 
     def __init__(
         self,
-        allowed: Optional[List[str]] = None,
-        blocked: Optional[List[str]] = None,
-        param_rules: Optional[Dict[str, Dict[str, Any]]] = None,
+        allowed: list[str] | None = None,
+        blocked: list[str] | None = None,
+        param_rules: dict[str, dict[str, Any]] | None = None,
         on_violation: Literal["block", "warn"] = "block",
     ) -> None:
         self.allowed = allowed
@@ -36,7 +36,7 @@ class ToolValidator(BaseShield):
         self.param_rules = param_rules or {}
         self.on_violation = on_violation
 
-    def _name_check(self, tool_name: str) -> Tuple[bool, str]:
+    def _name_check(self, tool_name: str) -> tuple[bool, str]:
         for pat in self.blocked:
             if fnmatch.fnmatch(tool_name, pat):
                 return False, f"Tool '{tool_name}' matches blocked pattern '{pat}'"
@@ -49,7 +49,7 @@ class ToolValidator(BaseShield):
 
         return True, ""
 
-    def _param_check(self, tool_name: str, params: Dict[str, Any]) -> Tuple[bool, str]:
+    def _param_check(self, tool_name: str, params: dict[str, Any]) -> tuple[bool, str]:
         rules = self.param_rules.get(tool_name, {})
         for param, rule in rules.items():
             value = params.get(param)
@@ -79,7 +79,7 @@ class ToolValidator(BaseShield):
         return True, ""
 
     async def scan_tool_call(
-        self, tool_name: str, params: Dict[str, Any], ctx: SessionContext
+        self, tool_name: str, params: dict[str, Any], ctx: SessionContext
     ) -> ShieldResult:
         name_ok, name_reason = self._name_check(tool_name)
         if not name_ok:

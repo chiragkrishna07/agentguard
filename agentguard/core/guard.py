@@ -1,6 +1,7 @@
 import asyncio
 import functools
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.exceptions import GuardBlockedError, GuardShieldError
@@ -8,7 +9,7 @@ from agentguard.core.session import SessionContext
 
 
 class Guard:
-    def __init__(self, shields: Optional[List[BaseShield]] = None) -> None:
+    def __init__(self, shields: list[BaseShield] | None = None) -> None:
         self.shields = shields or []
 
     # ------------------------------------------------------------------ #
@@ -27,7 +28,7 @@ class Guard:
         async def wrapper(
             query: str,
             *args: Any,
-            _guard_ctx: Optional[SessionContext] = None,
+            _guard_ctx: SessionContext | None = None,
             **kwargs: Any,
         ) -> Any:
             ctx = _guard_ctx or SessionContext()
@@ -49,7 +50,7 @@ class Guard:
         def wrapper(
             query: str,
             *args: Any,
-            _guard_ctx: Optional[SessionContext] = None,
+            _guard_ctx: SessionContext | None = None,
             **kwargs: Any,
         ) -> Any:
             ctx = _guard_ctx or SessionContext()
@@ -67,7 +68,7 @@ class Guard:
         self,
         agent_fn: Callable,
         query: str,
-        ctx: Optional[SessionContext] = None,
+        ctx: SessionContext | None = None,
         **kwargs: Any,
     ) -> Any:
         """Run an agent through all shields. Alternative to the decorator."""
@@ -85,7 +86,7 @@ class Guard:
         self,
         tool_name: str,
         params: dict,
-        ctx: Optional[SessionContext] = None,
+        ctx: SessionContext | None = None,
     ) -> ShieldResult:
         """Scan a tool call through all shields. Called by GuardedTool."""
         ctx = ctx or SessionContext()

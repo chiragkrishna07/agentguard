@@ -7,10 +7,9 @@ will raise HumanGateSyncError.
 import asyncio
 import fnmatch
 import uuid
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
-from agentguard.core.exceptions import HumanGateSyncError
 from agentguard.core.session import SessionContext
 
 if TYPE_CHECKING:
@@ -30,7 +29,7 @@ class HumanGate(BaseShield):
 
     def __init__(
         self,
-        triggers: List[str],
+        triggers: list[str],
         notifier: Optional["BaseNotifier"] = None,
         timeout_seconds: int = 300,
         on_timeout: Literal["block", "allow"] = "block",
@@ -43,8 +42,8 @@ class HumanGate(BaseShield):
         self.notifier = notifier
         self.timeout_seconds = timeout_seconds
         self.on_timeout = on_timeout
-        self._events: Dict[str, asyncio.Event] = {}
-        self._decisions: Dict[str, bool] = {}
+        self._events: dict[str, asyncio.Event] = {}
+        self._decisions: dict[str, bool] = {}
 
     # ------------------------------------------------------------------ #
     # Trigger matching                                                      #

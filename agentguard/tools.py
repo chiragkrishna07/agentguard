@@ -3,7 +3,8 @@ GuardedTool — wrap any callable so its invocation passes through ToolValidator
 and HumanGate shields before execution.
 """
 import asyncio
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard

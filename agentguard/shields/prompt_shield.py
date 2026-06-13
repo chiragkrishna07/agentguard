@@ -9,7 +9,7 @@ import base64
 import re
 import urllib.parse
 import uuid
-from typing import List, Literal, Optional, Tuple
+from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -17,7 +17,7 @@ from agentguard.core.session import SessionContext
 # ---------------------------------------------------------------------------
 # Rule patterns — community-maintainable list
 # ---------------------------------------------------------------------------
-_RAW_PATTERNS: List[str] = [
+_RAW_PATTERNS: list[str] = [
     # Direct instruction overrides
     r"ignore\s+(all\s+)?(previous|prior|above|former)\s+instructions?",
     r"disregard\s+(all\s+)?(previous|prior|above)\s+instructions?",
@@ -69,7 +69,7 @@ _COMPILED = [re.compile(p, re.IGNORECASE | re.MULTILINE) for p in _RAW_PATTERNS]
 
 def _preprocess(text: str) -> str:
     """Decode common obfuscation encodings and append to original text."""
-    extra: List[str] = []
+    extra: list[str] = []
 
     # Base64
     try:
@@ -99,7 +99,7 @@ class PromptShield(BaseShield):
         sensitivity: float = 0.85,
         use_ml: bool = False,
         use_canary: bool = True,
-        custom_patterns: Optional[List[str]] = None,
+        custom_patterns: list[str] | None = None,
     ) -> None:
         self.mode = mode
         self.sensitivity = sensitivity
@@ -116,7 +116,7 @@ class PromptShield(BaseShield):
     # Rule scanning                                                        #
     # ------------------------------------------------------------------ #
 
-    def _rule_scan(self, text: str) -> Tuple[bool, str]:
+    def _rule_scan(self, text: str) -> tuple[bool, str]:
         preprocessed = _preprocess(text)
         for pattern in self._patterns:
             m = pattern.search(preprocessed)
@@ -128,7 +128,7 @@ class PromptShield(BaseShield):
     # ML scanning                                                          #
     # ------------------------------------------------------------------ #
 
-    def _ml_scan(self, text: str) -> Tuple[bool, float]:
+    def _ml_scan(self, text: str) -> tuple[bool, float]:
         if self._classifier is None:
             from agentguard.models.loader import load_injection_classifier
             self._classifier = load_injection_classifier()

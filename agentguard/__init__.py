@@ -28,7 +28,7 @@ from agentguard.shields.rate_limit import RateLimit
 from agentguard.shields.tool_validator import ToolValidator
 from agentguard.tools import GuardedTool
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     # Core

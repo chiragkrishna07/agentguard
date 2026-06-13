@@ -55,3 +55,31 @@ class TestRateLimit:
         result = await shield.scan_input("req", ctx2)
         # Both share the same global bucket — second should be blocked
         assert result.allowed is False
+
+    def test_concurrent_threads_never_exceed_burst(self):
+        # A single shield shared across OS threads must not over-admit.
+        import threading
+
+        shield = RateLimit(requests_per_minute=1, burst=5, per="global")
+        ctx = SessionContext()
+        allowed = []
+        lock = threading.Lock()
+
+        def worker():
+            import asyncio
+
+            r = asyncio.run(shield.scan_input("x", ctx))
+            if r.allowed:
+                with lock:
+                    allowed.append(1)
+
+        threads = [threading.Thread(target=worker) for _ in range(50)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # With burst=5 and a negligibly small refill over the test window,
+        # at most a handful beyond 5 could be admitted via refill; the lock
+        # guarantees we never grossly over-admit (which the race would).
+        assert sum(allowed) <= 6

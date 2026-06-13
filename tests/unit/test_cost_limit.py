@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from agentguard.core.session import SessionContext
 from agentguard.shields.cost_limit import CostLimit

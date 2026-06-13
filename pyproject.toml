@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentguard"
-version = "0.1.0"
+version = "0.1.1"
 description = "Helmet.js for AI Agents — Lightweight security middleware for production AI agents"
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -2,6 +2,20 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.1.1] — Unreleased
+
+### Fixed
+- **`PIIRedactor`**: overlapping regex matches (e.g. an email whose host is all
+  digits also matching `PHONE_US`) no longer corrupt the output or leak PII
+  fragments. Spans are now resolved to a non-overlapping set before redaction.
+
+### Changed
+- **`RateLimit`** and **`CostLimit`** now guard their state mutations with a
+  lock, keeping them correct when a single shield instance is shared across OS
+  threads (threaded servers, `protect_sync` from multiple threads).
+- Modernised type hints across the package (`dict`/`list`/`X | None`) and made
+  the codebase lint-clean under current `ruff`.
+
 ## [0.1.0] — Unreleased
 
 ### Added

@@ -1,5 +1,6 @@
+import threading
 import time
-from typing import Dict, Literal, Tuple
+from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -24,29 +25,34 @@ class RateLimit(BaseShield):
         self.per = per
         self.burst = max(1, burst)
         # key → (tokens_available, last_refill_monotonic)
-        self._buckets: Dict[str, Tuple[float, float]] = {}
+        self._buckets: dict[str, tuple[float, float]] = {}
+        # Guards bucket read-modify-write so the limiter stays correct when a
+        # single shield instance is shared across OS threads (e.g. a threaded
+        # WSGI server, or protect_sync called from multiple threads).
+        self._lock = threading.Lock()
 
     def _bucket_key(self, ctx: SessionContext) -> str:
         return ctx.session_id if self.per == "session" else "__global__"
 
     def _try_consume(self, key: str) -> bool:
-        now = time.monotonic()
-        refill_rate = self.requests_per_minute / 60.0
+        with self._lock:
+            now = time.monotonic()
+            refill_rate = self.requests_per_minute / 60.0
 
-        if key not in self._buckets:
-            # First request: start with a full bucket and consume one token
-            self._buckets[key] = (float(self.burst) - 1.0, now)
+            if key not in self._buckets:
+                # First request: start with a full bucket and consume one token
+                self._buckets[key] = (float(self.burst) - 1.0, now)
+                return True
+
+            tokens, last = self._buckets[key]
+            tokens = min(float(self.burst), tokens + (now - last) * refill_rate)
+
+            if tokens < 1.0:
+                self._buckets[key] = (tokens, now)
+                return False
+
+            self._buckets[key] = (tokens - 1.0, now)
             return True
-
-        tokens, last = self._buckets[key]
-        tokens = min(float(self.burst), tokens + (now - last) * refill_rate)
-
-        if tokens < 1.0:
-            self._buckets[key] = (tokens, now)
-            return False
-
-        self._buckets[key] = (tokens - 1.0, now)
-        return True
 
     async def scan_input(self, text: str, ctx: SessionContext) -> ShieldResult:
         key = self._bucket_key(ctx)

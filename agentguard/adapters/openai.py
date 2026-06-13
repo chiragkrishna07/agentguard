@@ -15,11 +15,13 @@ response = await adapter.create(client, model="gpt-4o", messages=[...])
 # Wrap a tool function
 search = adapter.wrap_tool(search_fn)
 """
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
     from agentguard.core.session import SessionContext
+    from agentguard.tools import GuardedTool
 
 
 class GuardOpenAI:
@@ -34,7 +36,7 @@ class GuardOpenAI:
 
     async def create(self, client: Any, **kwargs: Any) -> Any:
         """Drop-in replacement for client.chat.completions.create with guard scanning."""
-        messages: List[Dict[str, Any]] = list(kwargs.get("messages", []))
+        messages: list[dict[str, Any]] = list(kwargs.get("messages", []))
         if messages:
             last = messages[-1]
             if isinstance(last, dict) and last.get("role") == "user":
@@ -48,6 +50,6 @@ class GuardOpenAI:
         await self.guard._scan_output(content, self.ctx)
         return response
 
-    def wrap_tool(self, fn: Callable) -> "GuardedTool":  # type: ignore[name-defined]
+    def wrap_tool(self, fn: Callable) -> "GuardedTool":
         from agentguard.tools import GuardedTool
         return GuardedTool(fn, self.guard, self.ctx)

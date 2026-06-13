@@ -17,11 +17,13 @@ search = adapter.wrap_tool(search_fn)
 """
 import asyncio
 import functools
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
     from agentguard.core.session import SessionContext
+    from agentguard.tools import GuardedTool
 
 
 class GuardLangGraph:
@@ -38,7 +40,7 @@ class GuardLangGraph:
         """Scan the last user message in state['messages'] through input shields."""
 
         @functools.wraps(fn)
-        async def wrapper(state: Dict[str, Any], *args: Any, **kwargs: Any) -> Any:
+        async def wrapper(state: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
             messages = state.get("messages", [])
             if messages:
                 last = messages[-1]
@@ -55,6 +57,6 @@ class GuardLangGraph:
 
         return wrapper
 
-    def wrap_tool(self, fn: Callable) -> "GuardedTool":  # type: ignore[name-defined]
+    def wrap_tool(self, fn: Callable) -> "GuardedTool":
         from agentguard.tools import GuardedTool
         return GuardedTool(fn, self.guard, self.ctx)

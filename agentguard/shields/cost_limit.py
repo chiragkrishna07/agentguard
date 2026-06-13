@@ -1,10 +1,11 @@
-from typing import Dict, Literal, Optional
+import threading
+from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
 
 # Pricing per 1 million tokens (USD). Updated May 2026.
-_DEFAULT_PRICING: Dict[str, Dict[str, float]] = {
+_DEFAULT_PRICING: dict[str, dict[str, float]] = {
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-4-turbo": {"input": 10.00, "output": 30.00},
@@ -32,7 +33,7 @@ class CostLimit(BaseShield):
         per: Literal["session", "global"] = "session",
         on_limit: Literal["block", "warn"] = "block",
         model: str = "gpt-4o",
-        pricing: Optional[Dict[str, Dict[str, float]]] = None,
+        pricing: dict[str, dict[str, float]] | None = None,
     ) -> None:
         self.max_usd = max_usd
         self.per = per
@@ -41,6 +42,9 @@ class CostLimit(BaseShield):
         self.pricing = {**_DEFAULT_PRICING, **(pricing or {})}
         self._global_cost: float = 0.0
         self._encoder = None
+        # Serialises the check-then-charge in global mode so two concurrent
+        # threads can't both slip past the budget on the same tick.
+        self._lock = threading.Lock()
 
     def _get_encoder(self):
         if self._encoder is None:
@@ -77,24 +81,25 @@ class CostLimit(BaseShield):
 
     async def scan_input(self, text: str, ctx: SessionContext) -> ShieldResult:
         cost = self._token_cost(text, "input")
-        current = self._current(ctx)
-
-        if current + cost > self.max_usd:
-            msg = (
-                f"Cost limit ${self.max_usd:.4f} would be exceeded "
-                f"(running: ${current:.4f}, this request: ${cost:.6f})"
-            )
-            if self.on_limit == "block":
-                return ShieldResult(
-                    allowed=False, reason=msg, reason_code="COST_LIMIT_EXCEEDED"
+        with self._lock:
+            current = self._current(ctx)
+            if current + cost > self.max_usd:
+                msg = (
+                    f"Cost limit ${self.max_usd:.4f} would be exceeded "
+                    f"(running: ${current:.4f}, this request: ${cost:.6f})"
                 )
-            import warnings
-            warnings.warn(f"[AgentGuard] {msg}", stacklevel=4)
+                if self.on_limit == "block":
+                    return ShieldResult(
+                        allowed=False, reason=msg, reason_code="COST_LIMIT_EXCEEDED"
+                    )
+                import warnings
+                warnings.warn(f"[AgentGuard] {msg}", stacklevel=4)
 
-        self._add(ctx, cost)
+            self._add(ctx, cost)
         return ShieldResult(allowed=True)
 
     async def scan_output(self, text: str, ctx: SessionContext) -> ShieldResult:
         cost = self._token_cost(text, "output")
-        self._add(ctx, cost)
+        with self._lock:
+            self._add(ctx, cost)
         return ShieldResult(allowed=True)

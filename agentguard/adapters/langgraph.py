@@ -20,7 +20,7 @@ import functools
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
-from agentguard.core.content import apply_to_text
+from agentguard.core.content import scan_joined_text
 
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
@@ -49,9 +49,9 @@ class GuardLangGraph:
                 scan = lambda t: self.guard._scan_input(t, self.ctx)  # noqa: E731
                 if hasattr(last, "content"):
                     # LangChain message — content may be str or a list of parts.
-                    last.content = await apply_to_text(last.content, scan)
+                    last.content = await scan_joined_text(last.content, scan)
                 else:
-                    messages[-1] = await apply_to_text(last, scan)
+                    messages[-1] = await scan_joined_text(last, scan)
 
             if asyncio.iscoroutinefunction(fn):
                 return await fn(state, *args, **kwargs)

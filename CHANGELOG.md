@@ -2,6 +2,25 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.11.0] — Unreleased
+
+### Fixed (third adversarial audit — both critical/high)
+- **`StreamGuard` incremental mode leaked raw secrets** when a token straddled a
+  chunk boundary: it emitted the token's prefix before the full match formed,
+  then over-sliced after redaction shortened the buffer. Rewritten to emit only
+  a *frozen* prefix ending at a whitespace boundary, so no whitespace-delimited
+  token is ever split — incremental output now matches buffer mode exactly. (The
+  whitespace-containing-match caveat is documented; buffer mode is exact.)
+- **Multimodal injection bypass**: the adapters scanned each text part in
+  isolation, so an injection split across two parts ("disregard all" +
+  "previous instructions") slipped through. Adapters now scan the *joined* text
+  (`scan_joined_text`), catching split injections while preserving image parts.
+- `Guard.from_dict` now wraps a bad-kwarg `TypeError` as a clear `ValueError`.
+
+### Confirmed clean by the audit
+- StreamGuard buffer mode, `extract_text`/`apply_to_text` mutation-safety, and
+  `Guard.from_dict`'s type checks held up.
+
 ## [0.10.0] — Unreleased
 
 ### Added

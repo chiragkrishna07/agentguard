@@ -8,11 +8,14 @@ honest strategies:
 - ``mode="buffer"`` (default, safe): accumulate the full stream, scan once, then
   yield the sanitised result. Correct for any match length; gives up streaming
   latency.
-- ``mode="incremental"``: re-scan the growing buffer after each chunk and emit
-  the *stable* sanitised prefix, always holding back the last ``holdback``
-  characters so a secret/PII token near the tail is never half-emitted. Lower
-  latency, but only guaranteed for matches up to ``holdback`` characters — use
-  buffer mode if you must catch arbitrarily long secrets (e.g. PEM blocks).
+- ``mode="incremental"``: emit only a *frozen* prefix of the output — the text
+  up to the last whitespace boundary at least ``holdback`` characters back from
+  the live end. Because a frozen prefix always ends at whitespace, no
+  whitespace-delimited token (API keys, SSNs, emails, JWTs) is ever split or
+  half-emitted, regardless of its length. Lower latency than buffering. Caveat:
+  matches that *contain* whitespace (a space-separated credit card, a multi-line
+  PEM block) are only reliably redacted in buffer mode — use buffer mode when
+  that matters.
 
 A blocking output shield (e.g. a triggered canary) raises ``GuardBlockedError``
 out of the generator, aborting the stream.
@@ -53,19 +56,37 @@ class StreamGuard:
             return
 
         buffer = ""
-        emitted = 0
+        emitted = 0  # index into the sanitised *frozen* prefix already yielded
         async for chunk in chunks:
             buffer += chunk
-            sanitized = await self.guard._scan_output(buffer, ctx)
-            stable_end = max(0, len(sanitized) - self.holdback)
-            if stable_end > emitted:
-                yield sanitized[emitted:stable_end]
-                emitted = stable_end
+            cut = self._frozen_cut(buffer)
+            if cut <= 0:
+                continue
+            # The frozen prefix ends at whitespace, so every token inside it is
+            # complete; scanning it gives a result that can only be *extended*
+            # (never rewritten) as more whole tokens are appended — which makes
+            # `emitted` a safe, monotonic index.
+            sanitized = await self.guard._scan_output(buffer[:cut], ctx)
+            if len(sanitized) > emitted:
+                yield sanitized[emitted:]
+                emitted = len(sanitized)
 
-        # Flush whatever remained inside the holdback window.
+        # Flush: scan the entire buffer and emit whatever is left.
         sanitized = await self.guard._scan_output(buffer, ctx)
         if len(sanitized) > emitted:
             yield sanitized[emitted:]
+
+    def _frozen_cut(self, buffer: str) -> int:
+        """Largest index <= len-holdback that sits just after a whitespace char.
+
+        Cutting there guarantees the frozen prefix ends on a token boundary, so a
+        token still being streamed is never split across the emit boundary.
+        """
+        limit = min(len(buffer) - self.holdback, len(buffer))
+        for c in range(limit, 0, -1):
+            if buffer[c - 1].isspace():
+                return c
+        return 0
 
     async def collect(self, chunks: AsyncIterator[str]) -> str:
         """Convenience: consume the scanned stream and return the full string."""

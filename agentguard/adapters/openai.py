@@ -19,7 +19,7 @@ import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
-from agentguard.core.content import apply_to_text
+from agentguard.core.content import scan_joined_text
 
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
@@ -44,8 +44,9 @@ class GuardOpenAI:
             last = messages[-1]
             if isinstance(last, dict) and last.get("role") == "user":
                 # Handles both plain-string and structured (vision/multimodal)
-                # content — text parts are scanned, image parts left intact.
-                sanitized = await apply_to_text(
+                # content. Text parts are scanned together (so a split injection
+                # can't slip through), image parts are left intact.
+                sanitized = await scan_joined_text(
                     last.get("content"),
                     lambda t: self.guard._scan_input(t, self.ctx),
                 )

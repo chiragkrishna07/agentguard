@@ -48,12 +48,26 @@ class TestStreamGuard:
 
     @pytest.mark.asyncio
     async def test_incremental_emits_progressively(self):
-        # With no redacting shield, output should stream out (more than one piece).
+        # With whitespace-delimited tokens, output streams out before the end.
         guard = Guard(shields=[])
-        sg = StreamGuard(guard, mode="incremental", holdback=4)
-        pieces = [p async for p in sg.scan(_gen(["aaaa", "bbbb", "cccc", "dddd"]))]
-        assert "".join(pieces) == "aaaabbbbccccdddd"
+        sg = StreamGuard(guard, mode="incremental", holdback=3)
+        pieces = [p async for p in sg.scan(_gen(["aaa ", "bbb ", "ccc ", "ddd"]))]
+        assert "".join(pieces) == "aaa bbb ccc ddd"
         assert len(pieces) >= 2  # streamed, not all at the end
+
+    @pytest.mark.asyncio
+    async def test_incremental_no_leak_when_token_straddles_boundary(self):
+        # Regression: a secret split across chunks must never be emitted raw.
+        guard = Guard(shields=[SecretsShield(on_detect="redact")])
+        chunks = ["here is ", "ghp_aaaaaaaaaa", "aaaaaaaaaaaaaa", "aaaaaaaaaaaa done"]
+        out = await StreamGuard(guard, mode="incremental", holdback=8).collect(
+            _gen(chunks)
+        )
+        assert "ghp_" not in out
+        assert "[REDACTED_GITHUB_TOKEN]" in out
+        # identical to the safe buffer-mode result
+        buffered = await StreamGuard(guard, mode="buffer").collect(_gen(chunks))
+        assert out == buffered
 
     @pytest.mark.asyncio
     async def test_blocking_shield_aborts_stream(self):

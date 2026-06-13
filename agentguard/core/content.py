@@ -32,6 +32,33 @@ def extract_text(content: Any) -> str:
     return str(content)
 
 
+def _is_text_part(part: Any) -> bool:
+    return isinstance(part, dict) and isinstance(part.get("text"), str)
+
+
+async def scan_joined_text(content: Any, fn: Callable[[str], Awaitable[str]]) -> Any:
+    """Scan the *combined* text of a message, then rebuild the content.
+
+    Unlike :func:`apply_to_text` (which scans each part in isolation), this joins
+    every text part and scans the whole thing, so an injection split across two
+    parts ("ignore all" + "previous instructions") is still caught. The result
+    collapses the text parts into a single sanitised part and keeps non-text
+    parts (images, etc.) untouched.
+    """
+    if isinstance(content, str):
+        return await fn(content)
+    if isinstance(content, (list, tuple)):
+        text_parts = [p for p in content if _is_text_part(p)]
+        others = [p for p in content if not _is_text_part(p)]
+        if not text_parts:
+            return content
+        sanitized = await fn("\n".join(p["text"] for p in text_parts))
+        return [{"type": "text", "text": sanitized}, *others]
+    if isinstance(content, dict):
+        return await apply_to_text(content, fn)
+    return content
+
+
 async def apply_to_text(
     content: Any, fn: Callable[[str], Awaitable[str]]
 ) -> Any:

@@ -45,7 +45,10 @@ class Guard:
             shield_cls = getattr(_ag, name, None)
             if not (isinstance(shield_cls, type) and issubclass(shield_cls, BaseShield)):
                 raise ValueError(f"unknown shield type: {name!r}")
-            shields.append(shield_cls(**entry))
+            try:
+                shields.append(shield_cls(**entry))
+            except TypeError as exc:
+                raise ValueError(f"bad config for shield {name!r}: {exc}") from exc
         return cls(shields=shields)
 
     def stats(self) -> dict:

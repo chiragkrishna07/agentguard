@@ -1,16 +1,18 @@
 """
 HumanGate — async human-in-the-loop approval for high-risk actions.
 
-IMPORTANT: This shield is async-only. Using it from a synchronous context
-will raise HumanGateSyncError.
+IMPORTANT: This shield is async-only. Approval is delivered by an external task
+calling ``approve()``/``deny()`` while the gated request awaits, which requires a
+live event loop. Running it through ``Guard.protect_sync`` therefore raises
+``HumanGateSyncError`` (the transient loop created per call could never receive
+the approval); use the async ``@guard.protect`` instead.
 """
 import asyncio
 import fnmatch
 import uuid
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
-from agentguard.core.exceptions import HumanGateSyncError
 from agentguard.core.session import SessionContext
 
 if TYPE_CHECKING:
@@ -28,9 +30,11 @@ class HumanGate(BaseShield):
                                (PIIRedactor does this automatically)
     """
 
+    requires_async = True
+
     def __init__(
         self,
-        triggers: List[str],
+        triggers: list[str],
         notifier: Optional["BaseNotifier"] = None,
         timeout_seconds: int = 300,
         on_timeout: Literal["block", "allow"] = "block",
@@ -43,8 +47,8 @@ class HumanGate(BaseShield):
         self.notifier = notifier
         self.timeout_seconds = timeout_seconds
         self.on_timeout = on_timeout
-        self._events: Dict[str, asyncio.Event] = {}
-        self._decisions: Dict[str, bool] = {}
+        self._events: dict[str, asyncio.Event] = {}
+        self._decisions: dict[str, bool] = {}
 
     # ------------------------------------------------------------------ #
     # Trigger matching                                                      #

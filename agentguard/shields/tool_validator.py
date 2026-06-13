@@ -1,6 +1,6 @@
 import fnmatch
 import re
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -18,17 +18,26 @@ class ToolValidator(BaseShield):
         Glob patterns for denied tool names. Evaluated before `allowed`.
     param_rules:
         Per-tool parameter constraints. Each rule is a dict with optional keys:
-        type, max, min, maxlen, pattern (regex string).
+        ``type``, ``required`` (bool), ``max``, ``min``, ``maxlen``,
+        ``pattern`` (regex string).
     on_violation:
         "block" (default) raises GuardBlockedError.
         "warn" logs a warning and allows the call.
+
+    Notes
+    -----
+    Tool names are matched case-insensitively (most dispatchers are), so
+    ``blocked=["delete_*"]`` also stops ``DELETE_FILE``. Numeric ``min``/``max``
+    rules coerce numeric strings (LLM tool args are often strings) and fail
+    closed on non-numeric values, and ``maxlen``/``pattern`` apply to the value's
+    string form — so a rule can't be dodged by changing the argument's type.
     """
 
     def __init__(
         self,
-        allowed: Optional[List[str]] = None,
-        blocked: Optional[List[str]] = None,
-        param_rules: Optional[Dict[str, Dict[str, Any]]] = None,
+        allowed: list[str] | None = None,
+        blocked: list[str] | None = None,
+        param_rules: dict[str, dict[str, Any]] | None = None,
         on_violation: Literal["block", "warn"] = "block",
     ) -> None:
         self.allowed = allowed
@@ -36,24 +45,41 @@ class ToolValidator(BaseShield):
         self.param_rules = param_rules or {}
         self.on_violation = on_violation
 
-    def _name_check(self, tool_name: str) -> Tuple[bool, str]:
+    def _name_check(self, tool_name: str) -> tuple[bool, str]:
+        name = tool_name.lower()
         for pat in self.blocked:
-            if fnmatch.fnmatch(tool_name, pat):
+            if fnmatch.fnmatchcase(name, pat.lower()):
                 return False, f"Tool '{tool_name}' matches blocked pattern '{pat}'"
 
         if self.allowed is not None:
             for pat in self.allowed:
-                if fnmatch.fnmatch(tool_name, pat):
+                if fnmatch.fnmatchcase(name, pat.lower()):
                     return True, ""
             return False, f"Tool '{tool_name}' is not in the allowed list"
 
         return True, ""
 
-    def _param_check(self, tool_name: str, params: Dict[str, Any]) -> Tuple[bool, str]:
+    @staticmethod
+    def _as_number(value: Any) -> float | None:
+        # bool is an int subclass — don't treat True/False as numeric.
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
+
+    def _param_check(self, tool_name: str, params: dict[str, Any]) -> tuple[bool, str]:
         rules = self.param_rules.get(tool_name, {})
         for param, rule in rules.items():
             value = params.get(param)
             if value is None:
+                if rule.get("required"):
+                    return False, f"Required param '{param}' is missing"
                 continue
 
             expected_type = rule.get("type")
@@ -63,23 +89,28 @@ class ToolValidator(BaseShield):
                     f"Param '{param}': expected {expected_type.__name__}, got {type(value).__name__}",
                 )
 
-            if "max" in rule and isinstance(value, (int, float)) and value > rule["max"]:
-                return False, f"Param '{param}' value {value} exceeds max {rule['max']}"
+            # Numeric bounds — coerce numeric strings, fail closed on non-numbers.
+            if "max" in rule or "min" in rule:
+                num = self._as_number(value)
+                if num is None:
+                    return False, f"Param '{param}' must be numeric, got {type(value).__name__}"
+                if "max" in rule and num > rule["max"]:
+                    return False, f"Param '{param}' value {num} exceeds max {rule['max']}"
+                if "min" in rule and num < rule["min"]:
+                    return False, f"Param '{param}' value {num} is below min {rule['min']}"
 
-            if "min" in rule and isinstance(value, (int, float)) and value < rule["min"]:
-                return False, f"Param '{param}' value {value} is below min {rule['min']}"
+            # Length / pattern apply to the string form so a non-str can't dodge them.
+            sval = value if isinstance(value, str) else str(value)
+            if "maxlen" in rule and len(sval) > rule["maxlen"]:
+                return False, f"Param '{param}' length {len(sval)} exceeds maxlen {rule['maxlen']}"
 
-            if "maxlen" in rule and isinstance(value, str) and len(value) > rule["maxlen"]:
-                return False, f"Param '{param}' length {len(value)} exceeds maxlen {rule['maxlen']}"
-
-            if "pattern" in rule and isinstance(value, str):
-                if not re.fullmatch(rule["pattern"], value):
-                    return False, f"Param '{param}' does not match required pattern"
+            if "pattern" in rule and not re.fullmatch(rule["pattern"], sval):
+                return False, f"Param '{param}' does not match required pattern"
 
         return True, ""
 
     async def scan_tool_call(
-        self, tool_name: str, params: Dict[str, Any], ctx: SessionContext
+        self, tool_name: str, params: dict[str, Any], ctx: SessionContext
     ) -> ShieldResult:
         name_ok, name_reason = self._name_check(tool_name)
         if not name_ok:

@@ -11,9 +11,7 @@ Run
 import asyncio
 
 from agentguard import Guard, HumanGate
-from agentguard.core.exceptions import GuardBlockedError
 from agentguard.notifiers.cli import CLINotifier
-
 
 gate = HumanGate(
     triggers=["tool_call:send_*", "tool_call:delete_*"],

@@ -25,10 +25,11 @@ from agentguard.shields.human_gate import HumanGate
 from agentguard.shields.pii_redactor import PIIRedactor
 from agentguard.shields.prompt_shield import PromptShield
 from agentguard.shields.rate_limit import RateLimit
+from agentguard.shields.secrets import SecretsShield
 from agentguard.shields.tool_validator import ToolValidator
 from agentguard.tools import GuardedTool
 
-__version__ = "0.1.0"
+__version__ = "0.5.0"
 
 __all__ = [
     # Core
@@ -42,6 +43,7 @@ __all__ = [
     "ToolValidator",
     "HumanGate",
     "AuditLogger",
+    "SecretsShield",
     # Tools
     "GuardedTool",
     # Exceptions

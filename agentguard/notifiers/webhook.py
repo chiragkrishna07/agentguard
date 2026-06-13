@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import json
-from typing import Optional
 
 from agentguard.notifiers.base import BaseNotifier
 
@@ -13,7 +12,7 @@ class WebhookNotifier(BaseNotifier):
     ``X-AgentGuard-Signature: sha256=<hex>`` header for verification.
     """
 
-    def __init__(self, url: str, secret: Optional[str] = None) -> None:
+    def __init__(self, url: str, secret: str | None = None) -> None:
         self.url = url
         self.secret = secret
 

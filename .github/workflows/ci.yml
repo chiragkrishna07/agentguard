@@ -28,7 +28,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint (ruff)
-        run: ruff check agentguard/ tests/
+        run: ruff check agentguard/ tests/ examples/
 
       - name: Type check (mypy)
         run: mypy agentguard/ --ignore-missing-imports

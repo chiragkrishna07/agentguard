@@ -7,13 +7,13 @@ It is only downloaded on first use when use_ml=True is passed to PromptShield.
 Requirements: pip install agentguard[ml]
 """
 import warnings
-from typing import Any, Optional
+from typing import Any
 
-_classifier: Optional[Any] = None
+_classifier: Any | None = None
 _HF_MODEL_ID = "agentguard/prompt-injection-detector"
 
 
-def load_injection_classifier() -> Optional[Any]:
+def load_injection_classifier() -> Any | None:
     """Return a cached HuggingFace text-classification pipeline, or None on failure."""
     global _classifier
 

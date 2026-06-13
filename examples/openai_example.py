@@ -18,7 +18,6 @@ import os
 from agentguard import AuditLogger, CostLimit, Guard, PIIRedactor, PromptShield
 from agentguard.core.exceptions import GuardBlockedError
 
-
 guard = Guard(
     shields=[
         AuditLogger(output="stdout"),
@@ -65,7 +64,7 @@ async def main() -> None:
         print(f"BLOCKED: {e}\n")
 
     print("=" * 60)
-    print(f"Total cost so far: (see AuditLogger output above)")
+    print("Total cost so far: (see AuditLogger output above)")
     print("=" * 60 + "\n")
 
 

@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 import time
-from typing import Literal, Optional
+from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
@@ -24,7 +24,7 @@ class AuditLogger(BaseShield):
         self.output = output
         self.path = path
         self.include_input_hash = include_input_hash
-        self._logger: Optional[logging.Logger] = None
+        self._logger: logging.Logger | None = None
 
     def _get_logger(self) -> logging.Logger:
         if self._logger is None:
@@ -81,5 +81,20 @@ class AuditLogger(BaseShield):
             tool_name=tool_name,
             param_keys=sorted(params.keys()),
             cost_so_far_usd=round(ctx.cost_usd, 6),
+        )
+        return ShieldResult(allowed=True)
+
+    async def scan_tool_output(
+        self, tool_name: str, output: str, ctx: SessionContext
+    ) -> ShieldResult:
+        self._emit(
+            "tool_output",
+            session_id=ctx.session_id,
+            tool_name=tool_name,
+            output_hash=self._hash(output) if self.include_input_hash else None,
+            output_length=len(output),
+            indirect_injection_flagged=bool(
+                ctx.metadata.get("indirect_injection_detected")
+            ),
         )
         return ShieldResult(allowed=True)

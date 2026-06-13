@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentguard"
-version = "0.1.0"
+version = "0.5.0"
 description = "Helmet.js for AI Agents — Lightweight security middleware for production AI agents"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -59,6 +59,8 @@ Issues = "https://github.com/chiragkrishna1732/agentguard/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentguard"]
+# Ship the PEP 561 marker so downstream code type-checks against our hints.
+artifacts = ["agentguard/py.typed"]
 
 # ---------------------------------------------------------------------------
 # Ruff

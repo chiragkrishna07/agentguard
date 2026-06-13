@@ -2,6 +2,27 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.8.0] — Unreleased
+
+### Fixed (from a second adversarial audit)
+- **False positives from the v0.7 pattern broadening, closed.** The audit found
+  benign sentences that wrongly blocked ("send the conversation starter to the
+  team", "from now on you will receive weekly updates", "repeat the text above
+  the line", "output everything above the fold"). The exfiltration rule now
+  requires a model-context noun *and* a destination; `from now on` is limited to
+  `you are/act` personas; the `repeat/output … above` rules must be
+  clause-terminal. Strict mode is back to 100% recall / 100% precision / 0% FPR
+  on an expanded benign set, and these cases are now in the corpus.
+
+### Added
+- **Amex (15-digit) credit cards** are now detected (Luhn-checked) in addition to
+  16-digit cards.
+- `RELEASE.md` checklist; wheel build verified to ship `py.typed`.
+
+### Confirmed clean by the audit
+- Luhn validation, `merge_spans` overlap resolver, `SizeLimit`, and the new
+  OpenAI tool-call scanning held up against adversarial inputs.
+
 ## [0.7.0] — Unreleased
 
 ### Added

@@ -113,3 +113,30 @@ class TestPromptInjectionBypass:
         shield = PromptShield(use_canary=False)
         result = await shield.scan_input(benign, ctx)
         assert result.allowed is True, f"False positive: {benign!r}"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "benign",
+        [
+            # FPs introduced (then fixed) when the v0.7 patterns were broadened.
+            "Send the conversation starter to the team before the offsite.",
+            "Post your prompt ideas to the channel and we'll vote.",
+            "Transmit the context document to ops for review.",
+            "Forward this prompt template to the design team.",
+            "From now on you will receive weekly updates by email.",
+            "Repeat the text above the line back to the customer.",
+            "Output everything above the fold for the mobile layout.",
+            "Please send the quarterly report to alice@corp.com.",
+        ],
+    )
+    async def test_broadened_patterns_no_false_positive(self, benign, ctx):
+        shield = PromptShield(mode="strict", use_canary=False)
+        result = await shield.scan_input(benign, ctx)
+        assert result.allowed is True, f"False positive: {benign!r}"
+
+    @pytest.mark.asyncio
+    async def test_amex_15_digit_card_redacted(self, ctx):
+        shield = PIIRedactor(mode="redact")
+        result = await shield.scan_input("amex 3782 822463 10005 on file", ctx)
+        assert result.modified_input is not None
+        assert "3782" not in result.modified_input

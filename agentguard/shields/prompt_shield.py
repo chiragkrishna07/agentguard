@@ -128,8 +128,10 @@ _STRONG_PATTERNS: list[str] = [
     # System prompt extraction
     r"(reveal|show|print|output|tell\s+me|repeat|give\s+me)\s+(me\s+)?(your\s+|the\s+)?(system\s+prompt|instructions?|directives?)",
     r"what\s+(are|were)\s+your\s+(original\s+)?(instructions?|prompt|directives?)",
-    r"output\s+(everything|all)\s+(above|before|previously)",
-    r"repeat\s+(the\s+|everything\s+)?(text|words|message|content|everything)\s+(above|before|verbatim)",
+    # "above/before" must terminate the clause or point at the prompt — avoids
+    # benign "everything above the fold" / "the text above the line".
+    r"output\s+(everything|all)\s+(above|before|previously)\s*(this|the\s+prompt|here|me|verbatim|[.!?]|$)",
+    r"repeat\s+(the\s+|everything\s+)?(text|words|message|content|everything)\s+(above|before)\s*(verbatim|exactly|word\s+for\s+word|[.!?]|$)",
     r"starting\s+with\s+['\"]?(you\s+are|system|the\s+system)",
     r"print\s+your\s+(full\s+)?(initial\s+)?prompt",
     # Persona hijacking (qualified — "act as X without restrictions", not bare "act as")
@@ -137,7 +139,7 @@ _STRONG_PATTERNS: list[str] = [
     r"act\s+as\s+if\s+you\s+(have|had|are)\b[^.]*\b(no\s+(restrictions?|guidelines?|rules?|limits?|filters?)|unrestricted)",
     r"(you\s+)?(have|with)\s+no\s+(restrictions?|guidelines?|rules?|filters?)\s+(at\s+all|whatsoever|anymore|now)",
     r"pretend\s+you\s+(are|have\s+no)\s+(restrictions?|guidelines?)",
-    r"from\s+now\s+on\s+(you\s+(are|act|will|must|should)|act\s+as|pretend|behave)",
+    r"from\s+now\s+on\s+(you\s+(are|act)\b|act\s+as|pretend|behave|roleplay)",
     r"roleplay\s+as\s+(a|an)\s+\w+\s+(with\s+no|without)",
     # Delimiter/token injection
     r"----+\s*system\s*----+",
@@ -150,12 +152,13 @@ _STRONG_PATTERNS: list[str] = [
     # Indirect re-instruction
     r"(new|updated|additional|secret)\s+instructions?\s*:",
     r"(modified|replacement)\s+(system\s+)?prompt\s*:",
-    # Data exfiltration — fire on exfiltrating the conversation/prompt itself
-    # (the real signal), regardless of destination, to avoid flagging benign
-    # "send the report to alice@corp.com".
-    r"(send|forward|email|post|upload|transmit|exfiltrate|leak)\s+(me\s+|us\s+|all\s+|the\s+|your\s+|this\s+|our\s+)*(conversation|chat\s+history|message\s+history|context|system\s+prompt|prompt|instructions?|secrets?|credentials?)\b",
+    # Data exfiltration. Restrict to the model's own context (conversation /
+    # chat history / system prompt) AND require a "to <destination>", so benign
+    # "send the conversation starter to the team" or "send the report to
+    # alice@corp.com" don't match (their noun isn't a model-context noun).
+    r"(send|forward|email|post|upload|transmit)\s+(me\s+|us\s+|all\s+|the\s+|this\s+|your\s+|our\s+|entire\s+|whole\s+)*(conversation|chat\s+history|message\s+history|system\s+prompt)(\s+(context|history|log|data|transcript|contents?))?\s+to\b",
     r"exfiltrate",
-    r"leak\s+(the\s+)?(prompt|instructions?|data)",
+    r"leak\s+(the\s+)?(prompt|instructions?|data|conversation|secrets?)",
     r"bypass\s+(your\s+)?(safety|restrictions?|guidelines?|filters?)",
 ]
 

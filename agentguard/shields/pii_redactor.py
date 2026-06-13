@@ -22,7 +22,8 @@ from agentguard.shields._spans import merge_spans
 # ---------------------------------------------------------------------------
 _REGEX_PATTERNS: dict[str, str] = {
     "SSN": r"\b\d{3}-\d{2}-\d{4}\b",
-    "CREDIT_CARD": r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
+    # 16-digit (Visa/MC/Discover, 4-4-4-4) or 15-digit Amex (4-6-5). Luhn-checked.
+    "CREDIT_CARD": r"\b(?:\d{4}[-\s]?){3}\d{4}\b|\b3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}\b",
     "EMAIL": r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
     "PHONE_US": r"\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
     "IBAN": r"\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}(?:[A-Z0-9]?){0,16}\b",

@@ -118,6 +118,7 @@ def _compact(text: str) -> str:
 _STRONG_PATTERNS: list[str] = [
     # Direct instruction overrides
     r"ignore\s+(all\s+)?(previous|prior|above|former)\s+instructions?",
+    r"ignore\s+(the\s+|your\s+)?instructions?\s+(you\s+were\s+given|given\s+to\s+you|i\s+gave)",
     r"disregard\s+(all\s+)?(previous|prior|above)\s+instructions?",
     r"forget\s+(all\s+)?(previous|prior|above|your)\s+instructions?",
     r"forget\s+(everything|all|what)\s+(above|before|prior|previous|i\s+said|you\s+were)",
@@ -125,16 +126,18 @@ _STRONG_PATTERNS: list[str] = [
     r"do\s+not\s+follow\s+(your\s+)?(previous\s+)?instructions?",
     r"new\s+task\s*:\s*(ignore|disregard|forget)",
     # System prompt extraction
-    r"(reveal|show|print|output|tell\s+me|repeat)\s+(your\s+)?(system\s+prompt|instructions?|directives?)",
+    r"(reveal|show|print|output|tell\s+me|repeat|give\s+me)\s+(me\s+)?(your\s+|the\s+)?(system\s+prompt|instructions?|directives?)",
     r"what\s+(are|were)\s+your\s+(original\s+)?(instructions?|prompt|directives?)",
     r"output\s+(everything|all)\s+(above|before|previously)",
+    r"repeat\s+(the\s+|everything\s+)?(text|words|message|content|everything)\s+(above|before|verbatim)",
+    r"starting\s+with\s+['\"]?(you\s+are|system|the\s+system)",
     r"print\s+your\s+(full\s+)?(initial\s+)?prompt",
     # Persona hijacking (qualified — "act as X without restrictions", not bare "act as")
     r"act\s+as\s+(if\s+you\s+are\s+)?(a|an)\s+\w+\s+(with\s+no|without)",
     r"act\s+as\s+if\s+you\s+(have|had|are)\b[^.]*\b(no\s+(restrictions?|guidelines?|rules?|limits?|filters?)|unrestricted)",
     r"(you\s+)?(have|with)\s+no\s+(restrictions?|guidelines?|rules?|filters?)\s+(at\s+all|whatsoever|anymore|now)",
     r"pretend\s+you\s+(are|have\s+no)\s+(restrictions?|guidelines?)",
-    r"from\s+now\s+on\s+(you\s+are|act\s+as|pretend|behave)",
+    r"from\s+now\s+on\s+(you\s+(are|act|will|must|should)|act\s+as|pretend|behave)",
     r"roleplay\s+as\s+(a|an)\s+\w+\s+(with\s+no|without)",
     # Delimiter/token injection
     r"----+\s*system\s*----+",
@@ -147,9 +150,10 @@ _STRONG_PATTERNS: list[str] = [
     # Indirect re-instruction
     r"(new|updated|additional|secret)\s+instructions?\s*:",
     r"(modified|replacement)\s+(system\s+)?prompt\s*:",
-    # Data exfiltration
-    r"send\s+(all\s+)?(the\s+)?(conversation|context|data|info)\s+to",
-    r"forward\s+(this|all|the)\s+(conversation\s+)?to",
+    # Data exfiltration — fire on exfiltrating the conversation/prompt itself
+    # (the real signal), regardless of destination, to avoid flagging benign
+    # "send the report to alice@corp.com".
+    r"(send|forward|email|post|upload|transmit|exfiltrate|leak)\s+(me\s+|us\s+|all\s+|the\s+|your\s+|this\s+|our\s+)*(conversation|chat\s+history|message\s+history|context|system\s+prompt|prompt|instructions?|secrets?|credentials?)\b",
     r"exfiltrate",
     r"leak\s+(the\s+)?(prompt|instructions?|data)",
     r"bypass\s+(your\s+)?(safety|restrictions?|guidelines?|filters?)",

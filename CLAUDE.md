@@ -19,6 +19,7 @@ ruff check agentguard/ tests/    # lint (CI gates on this)
 mypy agentguard/ --ignore-missing-imports   # type check (CI gates on this)
 
 python -m tests.benchmarks.bench_shields     # shield latency benchmark
+python -m tests.benchmarks.bench_detection   # injection detection quality (recall/precision/FPR)
 python training/train_injection_classifier.py  # retrain the ML injection classifier
 ```
 

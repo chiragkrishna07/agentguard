@@ -21,13 +21,19 @@ from agentguard.shields._spans import merge_spans
 # Regex patterns — ordered so longer/more-specific patterns match first
 # ---------------------------------------------------------------------------
 _REGEX_PATTERNS: dict[str, str] = {
-    "SSN": r"\b\d{3}-\d{2}-\d{4}\b",
+    # SSN area numbers never start with 9 (that range is ITIN, matched below).
+    "SSN": r"\b(?!9)\d{3}-\d{2}-\d{4}\b",
     # 16-digit (Visa/MC/Discover, 4-4-4-4) or 15-digit Amex (4-6-5). Luhn-checked.
     "CREDIT_CARD": r"\b(?:\d{4}[-\s]?){3}\d{4}\b|\b3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}\b",
     "EMAIL": r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
     "PHONE_US": r"\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
     "IBAN": r"\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}(?:[A-Z0-9]?){0,16}\b",
     "IP_ADDRESS": r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
+    # Full IPv6 (8 groups). Compressed (::) forms are not matched to keep FPs low.
+    "IPV6_ADDRESS": r"\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\b",
+    "MAC_ADDRESS": r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b",
+    # US ITIN: 9, then a 70-88/90-92/94-99 group — looks like an SSN but starts with 9.
+    "ITIN": r"\b9\d{2}-(?:7\d|8[0-8]|9[0-24-9])-\d{4}\b",
     "DATE_OF_BIRTH": r"\b(?:0?[1-9]|1[0-2])[/\-](?:0?[1-9]|[12]\d|3[01])[/\-](?:19|20)\d{2}\b",
 }
 

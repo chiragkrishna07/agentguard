@@ -28,6 +28,12 @@ class TestSecretsDetection:
             ("slack", "xoxb-123456789012-abcdefghijkl"),
             ("stripe", "sk_live_" + "0" * 24),
             ("jwt", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKKF2QT4"),
+            ("huggingface", "hf_" + "a" * 34),
+            ("gitlab", "glpat-" + "a" * 20),
+            ("npm", "npm_" + "a" * 36),
+            ("google_oauth", "GOCSPX-" + "a" * 28),
+            ("twilio", "AC" + "0" * 32),
+            ("slack_webhook", "https://hooks.slack.com/services/T01/B02/abcDEF123"),
         ],
     )
     async def test_redacts_known_secret_types(self, ctx, label, secret):

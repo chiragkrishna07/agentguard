@@ -2,6 +2,15 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.12.0] — Unreleased
+
+### Added
+- **More credential types in `SecretsShield`**: Google OAuth secrets (`GOCSPX-`),
+  Slack webhooks, HuggingFace (`hf_`), GitLab (`glpat-`), npm (`npm_`), and
+  Twilio (`AC`/`SK`) keys, plus the `xoxe-` Slack token prefix.
+- **More PII entities in `PIIRedactor`**: full IPv6 addresses, MAC addresses, and
+  US ITINs (labelled distinctly from SSNs — SSN no longer matches the 9xx range).
+
 ## [0.11.0] — Unreleased
 
 ### Fixed (third adversarial audit — both critical/high)

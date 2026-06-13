@@ -31,7 +31,7 @@ from agentguard.shields.tool_validator import ToolValidator
 from agentguard.streaming import StreamGuard
 from agentguard.tools import GuardedTool
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 __all__ = [
     # Core

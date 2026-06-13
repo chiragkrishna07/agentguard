@@ -59,6 +59,37 @@ class TestPIIRedactorRegexEngine:
         assert "4242" not in result.modified_input
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "label,value",
+        [
+            ("ipv6", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"),
+            ("mac", "00:1A:2B:3C:4D:5E"),
+            ("itin", "912-78-1234"),
+        ],
+    )
+    async def test_new_entities_redacted(self, ctx, label, value):
+        shield = PIIRedactor(mode="redact", engine="regex")
+        result = await shield.scan_input(f"value is {value} ok", ctx)
+        assert result.modified_input is not None
+        assert value not in result.modified_input
+
+    @pytest.mark.asyncio
+    async def test_itin_labeled_distinctly_from_ssn(self, ctx):
+        shield = PIIRedactor(mode="redact", engine="regex")
+        assert "[REDACTED_ITIN]" in (
+            await shield.scan_input("912-78-1234", ctx)
+        ).modified_input
+        assert "[REDACTED_SSN]" in (
+            await shield.scan_input("123-45-6789", ctx)
+        ).modified_input
+
+    @pytest.mark.asyncio
+    async def test_time_not_matched_as_mac_or_ipv6(self, ctx):
+        shield = PIIRedactor(mode="redact", engine="regex")
+        result = await shield.scan_input("the meeting is at 10:30 on server1", ctx)
+        assert result.modified_input is None
+
+    @pytest.mark.asyncio
     async def test_clean_input_returns_none_modified(self, ctx):
         shield = PIIRedactor(mode="redact", engine="regex")
         result = await shield.scan_input("What is the weather like today?", ctx)

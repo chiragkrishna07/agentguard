@@ -171,9 +171,10 @@ SecretsShield(
 )
 ```
 
-Detects: AWS access keys, GitHub tokens/PATs, OpenAI & Anthropic keys, Google API keys,
-Slack/Stripe/SendGrid tokens, JWTs, and PEM private-key blocks. High-signal patterns keep
-false positives low; pair with gitleaks/trufflehog for exhaustive coverage.
+Detects: AWS access keys, GitHub tokens/PATs, OpenAI & Anthropic keys, Google API keys &
+OAuth secrets, Slack tokens & webhooks, Stripe/SendGrid/Twilio keys, HuggingFace/GitLab/npm
+tokens, JWTs, and PEM private-key blocks. High-signal patterns keep false positives low;
+pair with gitleaks/trufflehog for exhaustive coverage.
 
 ---
 

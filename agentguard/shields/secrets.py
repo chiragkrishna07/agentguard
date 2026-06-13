@@ -36,9 +36,15 @@ _SECRET_PATTERNS: dict[str, str] = {
     # OpenAI keys start with sk- but not sk-ant- (that's Anthropic, matched above).
     "OPENAI_KEY": r"\bsk-(?!ant-)(?:proj-)?[A-Za-z0-9_-]{20,}\b",
     "GOOGLE_API_KEY": r"\bAIza[0-9A-Za-z_-]{35}\b",
-    "SLACK_TOKEN": r"\bxox[baprs]-[0-9A-Za-z-]{10,}\b",
+    "GOOGLE_OAUTH_SECRET": r"\bGOCSPX-[A-Za-z0-9_-]{28}\b",
+    "SLACK_TOKEN": r"\bxox[baprse]-[0-9A-Za-z-]{10,}\b",
+    "SLACK_WEBHOOK": r"https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+",
     "STRIPE_KEY": r"\b(?:sk|rk)_(?:live|test)_[0-9a-zA-Z]{24,}\b",
     "SENDGRID_KEY": r"\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}\b",
+    "HUGGINGFACE_TOKEN": r"\bhf_[A-Za-z0-9]{34}\b",
+    "GITLAB_PAT": r"\bglpat-[A-Za-z0-9_-]{20}\b",
+    "NPM_TOKEN": r"\bnpm_[A-Za-z0-9]{36}\b",
+    "TWILIO_KEY": r"\b(?:AC|SK)[a-f0-9]{32}\b",
     "JWT": r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b",
 }
 

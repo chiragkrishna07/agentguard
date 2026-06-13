@@ -4,7 +4,11 @@ from collections.abc import Callable
 from typing import Any
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
-from agentguard.core.exceptions import GuardBlockedError, GuardShieldError
+from agentguard.core.exceptions import (
+    GuardBlockedError,
+    GuardShieldError,
+    HumanGateSyncError,
+)
 from agentguard.core.metrics import GuardMetrics
 from agentguard.core.session import SessionContext
 
@@ -63,6 +67,15 @@ class Guard:
             raise TypeError(
                 "@guard.protect_sync requires a sync function. "
                 "Use @guard.protect for async functions."
+            )
+
+        async_only = [s for s in self.shields if getattr(s, "requires_async", False)]
+        if async_only:
+            names = ", ".join(sorted(s.__class__.__name__ for s in async_only))
+            raise HumanGateSyncError(
+                f"{names} require a live event loop and cannot run under "
+                "@guard.protect_sync (the per-call loop could never receive the "
+                "approval). Use the async @guard.protect instead."
             )
 
         @functools.wraps(fn)

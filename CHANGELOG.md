@@ -2,6 +2,23 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.4.0] — Unreleased
+
+### Added
+- **Presets** (`agentguard.presets`): `minimal()`, `recommended()`, `paranoid()`
+  factory functions returning curated, production-ready shield stacks so teams
+  don't have to hand-tune seven shields on day one.
+- **PEP 561 `py.typed`** marker — the package now ships its type information, so
+  downstream code type-checks against AgentGuard's hints.
+- New runnable example `examples/indirect_injection_and_secrets.py`.
+
+### Fixed
+- **`HumanGate` under `protect_sync`** now raises `HumanGateSyncError` with a
+  clear message instead of silently hanging until timeout — the approval can
+  never arrive in a per-call event loop. Implemented via a decoupled
+  `BaseShield.requires_async` marker. The docstring no longer over-promises.
+- Example files are now lint-clean and covered by CI.
+
 ## [0.3.0] — Unreleased
 
 ### Added

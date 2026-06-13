@@ -89,6 +89,24 @@ asyncio.run(main())
 
 ---
 
+## Presets
+
+Don't want to hand-pick shields? Start from a curated stack and customize later:
+
+```python
+from agentguard.presets import minimal, recommended, paranoid
+
+guard = recommended(max_usd=25.0)   # injection + secrets + PII + cost + audit
+# minimal()  → zero-dependency: PromptShield + SecretsShield
+# paranoid() → paranoid injection mode, secrets hard-blocked, fully audited
+
+@guard.protect
+async def my_agent(query: str) -> str:
+    ...
+```
+
+---
+
 ## Shields
 
 ### `PromptShield` — Prompt Injection Detection

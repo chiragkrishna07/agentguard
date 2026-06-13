@@ -1,8 +1,11 @@
 """
 HumanGate — async human-in-the-loop approval for high-risk actions.
 
-IMPORTANT: This shield is async-only. Using it from a synchronous context
-will raise HumanGateSyncError.
+IMPORTANT: This shield is async-only. Approval is delivered by an external task
+calling ``approve()``/``deny()`` while the gated request awaits, which requires a
+live event loop. Running it through ``Guard.protect_sync`` therefore raises
+``HumanGateSyncError`` (the transient loop created per call could never receive
+the approval); use the async ``@guard.protect`` instead.
 """
 import asyncio
 import fnmatch
@@ -26,6 +29,8 @@ class HumanGate(BaseShield):
     ``"pii_detected"``       — fire by setting ``ctx.metadata["pii_detected"] = True``
                                (PIIRedactor does this automatically)
     """
+
+    requires_async = True
 
     def __init__(
         self,

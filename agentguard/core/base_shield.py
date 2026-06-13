@@ -15,6 +15,11 @@ class ShieldResult:
 
 
 class BaseShield(ABC):
+    # Shields that need a live, externally-driven event loop (e.g. HumanGate,
+    # which awaits an approval delivered by another task) set this True. The
+    # sync entry point refuses to run them — see Guard.protect_sync.
+    requires_async: bool = False
+
     async def scan_input(self, text: str, ctx: "SessionContext") -> ShieldResult:
         return ShieldResult(allowed=True)
 

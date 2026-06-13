@@ -12,14 +12,18 @@ import time
 
 from agentguard.core.session import SessionContext
 from agentguard.shields.audit_logger import AuditLogger
+from agentguard.shields.pii_redactor import PIIRedactor
 from agentguard.shields.prompt_shield import PromptShield
 from agentguard.shields.rate_limit import RateLimit
+from agentguard.shields.secrets import SecretsShield
 from agentguard.shields.tool_validator import ToolValidator
 
 SAMPLE_TEXT = (
     "I need to book a hotel in Tokyo for 3 nights next month, "
     "budget around $150/night, preferably near the city centre."
 )
+# A larger, realistic tool-output payload to stress base64/compact scanning.
+LARGE_TEXT = (SAMPLE_TEXT + " ") * 100
 WARMUP = 5
 ITERATIONS = 100
 
@@ -46,6 +50,8 @@ async def main() -> None:
 
     shields = [
         ("PromptShield (rules only)", PromptShield(mode="strict", use_ml=False)),
+        ("SecretsShield", SecretsShield()),
+        ("PIIRedactor (regex)", PIIRedactor()),
         ("RateLimit", RateLimit(requests_per_minute=10000, burst=10000)),
         ("ToolValidator", ToolValidator(blocked=["delete_*"])),
         ("AuditLogger (stdout)", AuditLogger(output="stdout")),
@@ -54,6 +60,10 @@ async def main() -> None:
     for name, shield in shields:
         await bench(name, shield)
 
+    print(f"\n  -- large payload ({len(LARGE_TEXT)} chars) --")
+    await bench("PromptShield (large)", PromptShield(use_ml=False), LARGE_TEXT)
+    await bench("SecretsShield (large)", SecretsShield(), LARGE_TEXT)
+    await bench("PIIRedactor (large)", PIIRedactor(), LARGE_TEXT)
     print()
 
 

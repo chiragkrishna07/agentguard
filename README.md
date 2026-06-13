@@ -105,6 +105,16 @@ async def my_agent(query: str) -> str:
     ...
 ```
 
+Or build a guard declaratively from config (e.g. parsed YAML/JSON):
+
+```python
+guard = Guard.from_dict({"shields": [
+    {"type": "PromptShield", "mode": "strict"},
+    {"type": "SecretsShield", "on_detect": "redact"},
+    {"type": "CostLimit", "max_usd": 5.0},
+]})
+```
+
 ---
 
 ## Shields

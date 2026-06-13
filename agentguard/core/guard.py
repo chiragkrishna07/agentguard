@@ -18,6 +18,36 @@ class Guard:
         self.shields = shields or []
         self.metrics = GuardMetrics()
 
+    @classmethod
+    def from_dict(cls, config: dict) -> "Guard":
+        """Build a Guard from a plain dict (e.g. parsed YAML/JSON).
+
+        ::
+
+            Guard.from_dict({"shields": [
+                {"type": "PromptShield", "mode": "strict"},
+                {"type": "SecretsShield", "on_detect": "redact"},
+                {"type": "CostLimit", "max_usd": 5.0},
+            ]})
+
+        Each entry's ``type`` names a shield exported from the ``agentguard``
+        package; the remaining keys are passed as constructor kwargs.
+        """
+        import agentguard as _ag
+
+        shields: list[BaseShield] = []
+        for raw in config.get("shields", []):
+            entry = dict(raw)
+            try:
+                name = entry.pop("type")
+            except KeyError as exc:
+                raise ValueError("each shield entry needs a 'type'") from exc
+            shield_cls = getattr(_ag, name, None)
+            if not (isinstance(shield_cls, type) and issubclass(shield_cls, BaseShield)):
+                raise ValueError(f"unknown shield type: {name!r}")
+            shields.append(shield_cls(**entry))
+        return cls(shields=shields)
+
     def stats(self) -> dict:
         """Return a snapshot of scan/block counters for monitoring."""
         return self.metrics.snapshot()

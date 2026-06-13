@@ -30,7 +30,7 @@ from agentguard.shields.size_limit import SizeLimit
 from agentguard.shields.tool_validator import ToolValidator
 from agentguard.tools import GuardedTool
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 __all__ = [
     # Core

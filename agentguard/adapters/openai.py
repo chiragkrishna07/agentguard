@@ -19,6 +19,8 @@ import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
+from agentguard.core.content import apply_to_text
+
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
     from agentguard.core.session import SessionContext
@@ -41,7 +43,12 @@ class GuardOpenAI:
         if messages:
             last = messages[-1]
             if isinstance(last, dict) and last.get("role") == "user":
-                sanitized = await self.guard._scan_input(last["content"], self.ctx)
+                # Handles both plain-string and structured (vision/multimodal)
+                # content — text parts are scanned, image parts left intact.
+                sanitized = await apply_to_text(
+                    last.get("content"),
+                    lambda t: self.guard._scan_input(t, self.ctx),
+                )
                 messages[-1] = {**last, "content": sanitized}
                 kwargs = {**kwargs, "messages": messages}
 

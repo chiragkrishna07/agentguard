@@ -2,6 +2,18 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.9.0] — Unreleased
+
+### Added
+- **Structured / multimodal message content** is now handled. `core/content.py`
+  provides `extract_text` and `apply_to_text`; the OpenAI and LangGraph adapters
+  scan the text parts of vision/multimodal messages (a list of typed parts) and
+  write sanitised text back while leaving image parts untouched. Previously such
+  content raised `GuardShieldError`, so an injection hidden in a text part was
+  neither scanned nor passed.
+- **`Guard.from_dict()`** builds a guard from a plain dict (parsed YAML/JSON) —
+  each entry's `type` names an exported shield, the rest are constructor kwargs.
+
 ## [0.8.0] — Unreleased
 
 ### Fixed (from a second adversarial audit)

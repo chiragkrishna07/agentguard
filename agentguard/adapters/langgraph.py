@@ -20,6 +20,8 @@ import functools
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
+from agentguard.core.content import apply_to_text
+
 if TYPE_CHECKING:
     from agentguard.core.guard import Guard
     from agentguard.core.session import SessionContext
@@ -44,12 +46,12 @@ class GuardLangGraph:
             messages = state.get("messages", [])
             if messages:
                 last = messages[-1]
-                content = last.content if hasattr(last, "content") else str(last)
-                sanitized = await self.guard._scan_input(content, self.ctx)
+                scan = lambda t: self.guard._scan_input(t, self.ctx)  # noqa: E731
                 if hasattr(last, "content"):
-                    last.content = sanitized
+                    # LangChain message — content may be str or a list of parts.
+                    last.content = await apply_to_text(last.content, scan)
                 else:
-                    messages[-1] = sanitized
+                    messages[-1] = await apply_to_text(last, scan)
 
             if asyncio.iscoroutinefunction(fn):
                 return await fn(state, *args, **kwargs)

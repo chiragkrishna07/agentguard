@@ -28,9 +28,10 @@ from agentguard.shields.rate_limit import RateLimit
 from agentguard.shields.secrets import SecretsShield
 from agentguard.shields.size_limit import SizeLimit
 from agentguard.shields.tool_validator import ToolValidator
+from agentguard.streaming import StreamGuard
 from agentguard.tools import GuardedTool
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
     # Core
@@ -46,6 +47,8 @@ __all__ = [
     "AuditLogger",
     "SecretsShield",
     "SizeLimit",
+    # Streaming
+    "StreamGuard",
     # Tools
     "GuardedTool",
     # Exceptions

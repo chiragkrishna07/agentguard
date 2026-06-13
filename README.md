@@ -286,6 +286,26 @@ cost accumulation. **Raw input/output is never logged** — only hashes and leng
 
 ---
 
+## Streaming
+
+Scan a streamed response so secrets/PII can't leak token-by-token:
+
+```python
+from agentguard import Guard, SecretsShield, PIIRedactor, StreamGuard
+
+guard = Guard(shields=[SecretsShield(), PIIRedactor(redact_output=True)])
+stream = StreamGuard(guard, mode="incremental")   # or "buffer" (default, safe)
+
+async for clean_chunk in stream.scan(llm_token_stream()):
+    print(clean_chunk, end="")
+```
+
+`buffer` mode scans the full response once (correct for any match length);
+`incremental` emits a stable sanitised prefix with a holdback window for lower
+latency. A triggered canary raises `GuardBlockedError` mid-stream.
+
+---
+
 ## Metrics
 
 Every `Guard` keeps thread-safe counters you can scrape into a dashboard:

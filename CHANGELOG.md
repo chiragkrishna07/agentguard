@@ -2,6 +2,15 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.10.0] — Unreleased
+
+### Added
+- **`StreamGuard`** — run the output shields over a streamed LLM response.
+  `mode="buffer"` (default) accumulates then scans (correct for any match
+  length); `mode="incremental"` re-scans the growing buffer and emits the stable
+  sanitised prefix while holding back the tail, so secrets/PII spanning chunk
+  boundaries are still redacted and a triggered canary aborts the stream.
+
 ## [0.9.0] — Unreleased
 
 ### Added

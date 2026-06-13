@@ -7,12 +7,53 @@ Tier 3 (opt-in, use_canary=True): canary-token detection in outputs.
 """
 import base64
 import re
+import unicodedata
 import urllib.parse
 import uuid
 from typing import Literal
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.session import SessionContext
+
+# Invisible / formatting characters used to break up keywords
+# ("ig<zero-width-space>nore"). Stripped before matching.
+_INVISIBLE = dict.fromkeys(
+    [
+        0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF,  # zero-width space/joiner/no-break
+        0x00AD, 0x180E,                           # soft hyphen, Mongolian vowel sep
+        0x2061, 0x2062, 0x2063, 0x2064,           # invisible math operators
+        0x200E, 0x200F,                           # LTR/RTL marks
+    ],
+    None,
+)
+
+# Common homoglyphs (Cyrillic / Greek letters that render like Latin ones).
+# NFKC does not fold these, so an attacker can spell "ignоre" with a Cyrillic
+# 'о' and dodge the rules. We map the most-abused lookalikes back to Latin.
+_CONFUSABLES = str.maketrans(
+    {
+        # Cyrillic → Latin
+        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
+        "к": "k", "м": "m", "н": "h", "т": "t", "в": "b", "і": "i", "ѕ": "s",
+        "ј": "j", "ԁ": "d", "ɡ": "g", "л": "n",
+        # Greek → Latin
+        "ο": "o", "α": "a", "ρ": "p", "ε": "e", "ι": "i", "ν": "v", "τ": "t",
+        "υ": "u", "κ": "k", "μ": "m", "χ": "x", "ϲ": "c",
+    }
+)
+
+
+def _normalize(text: str) -> str:
+    """Fold obfuscation that regex rules would otherwise miss.
+
+    NFKC collapses fullwidth/mathematical/styled letter variants; we then strip
+    invisible separators and map common homoglyphs back to Latin. The result is
+    used only for *matching* — the original text is what flows downstream.
+    """
+    folded = unicodedata.normalize("NFKC", text)
+    folded = folded.translate(_INVISIBLE)
+    folded = folded.translate(_CONFUSABLES)
+    return folded
 
 # ---------------------------------------------------------------------------
 # Rule patterns — split by confidence to keep the false-positive rate low.
@@ -83,18 +124,30 @@ _COMPILED_WEAK = [re.compile(p, re.IGNORECASE | re.MULTILINE) for p in _WEAK_PAT
 
 
 def _preprocess(text: str) -> str:
-    """Decode common obfuscation encodings and append to original text."""
+    """Build a matching surface that defeats common obfuscation.
+
+    Returns the original text plus normalised and decoded variants joined
+    together, so a rule matches if it hits *any* representation. This catches
+    Unicode tricks (zero-width splits, fullwidth/styled letters, homoglyphs)
+    and base64/URL-encoded payloads.
+    """
     extra: list[str] = []
 
-    # Base64
-    try:
-        decoded = base64.b64decode(text.strip() + "==", validate=False).decode(
-            "utf-8", errors="ignore"
-        )
-        if len(decoded) > 10 and decoded.isprintable():
-            extra.append(decoded)
-    except Exception:
-        pass
+    # Unicode normalisation (zero-width strip + NFKC + homoglyph folding)
+    normalized = _normalize(text)
+    if normalized != text:
+        extra.append(normalized)
+
+    # Base64 — try the normalised form too, since the original may be split
+    for candidate in {text, normalized}:
+        try:
+            decoded = base64.b64decode(candidate.strip() + "==", validate=False).decode(
+                "utf-8", errors="ignore"
+            )
+            if len(decoded) > 10 and decoded.isprintable():
+                extra.append(decoded)
+        except Exception:
+            pass
 
     # URL encoding
     try:

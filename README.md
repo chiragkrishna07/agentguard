@@ -112,6 +112,11 @@ buzzwords (lone keywords like "developer mode" that appear in benign text). Weak
 only block when corroborated (2+) or in `paranoid` mode — this keeps the false-positive
 rate low, which matters most when scanning retrieved documents.
 
+Input is **normalised before matching** to defeat obfuscation: zero-width/invisible
+character splits, NFKC folding (fullwidth and mathematical/styled letters), and common
+Cyrillic/Greek homoglyphs are all collapsed, so `ig​nore`, `Ｉｇｎｏｒｅ`, `𝐢𝐠𝐧𝐨𝐫𝐞`, and
+`ignоre` are caught — alongside base64/URL-encoded payloads.
+
 **Indirect prompt injection** (the EchoLeak / RAG-poisoning class) is the real threat to
 agents: malicious instructions hidden in content a tool *returns*, not in the user's
 message. `PromptShield` scans tool/retrieval output through `scan_tool_output` — wired
@@ -250,6 +255,23 @@ AuditLogger(
 
 Logs: timestamp, session_id, input hash + length, tool calls (name + param keys),
 cost accumulation. **Raw input/output is never logged** — only hashes and lengths.
+
+---
+
+## Metrics
+
+Every `Guard` keeps thread-safe counters you can scrape into a dashboard:
+
+```python
+guard.stats()
+# {
+#   "inputs_scanned": 1240, "outputs_scanned": 1240,
+#   "tool_calls_scanned": 318, "tool_outputs_scanned": 318,
+#   "blocked": 27,
+#   "blocks_by_code": {"PROMPT_INJECTION_DETECTED": 19, "SECRET_DETECTED": 8},
+#   "blocks_by_shield": {"PromptShield": 19, "SecretsShield": 8},
+# }
+```
 
 ---
 

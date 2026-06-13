@@ -35,6 +35,7 @@ The system is a **shield pipeline**. Everything flows through ordered lists of s
   - `result.allowed == False` raises `GuardBlockedError` (carries `reason_code` + `shield_name`).
   - **Fail-closed**: any unexpected exception inside a shield is wrapped in `GuardShieldError` and propagates — it does *not* silently pass through. Preserve this when adding error handling.
   - Entry points: `@guard.protect` (async fns), `@guard.protect_sync` (sync, wraps via `asyncio.run`), or explicit `guard.run(...)`. The protected function's first positional arg is always the query string; a `SessionContext` can be threaded via the `_guard_ctx` kwarg.
+  - Every block goes through `Guard._raise_block`, which records the block in `self.metrics` (`core/metrics.py`, thread-safe `GuardMetrics`) before raising. `guard.stats()` returns a snapshot. When adding a new block site, route it through `_raise_block` so metrics stay complete.
 
 - **`SessionContext`** (`core/session.py`) — per-session state passed to every shield: `session_id`, `cost_usd`, `request_count`, `metadata`, plus a `_token_map` for PII tokenize/de-tokenize round-tripping (`store_token`/`resolve_token`/`resolve_all_tokens`). Shields that accumulate state (cost, rate) read/write this rather than holding global state, except when `per="global"`.
 

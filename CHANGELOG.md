@@ -2,6 +2,19 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.3.0] — Unreleased
+
+### Added
+- **Unicode evasion hardening** — `PromptShield` now normalises input before
+  matching: strips zero-width/invisible separators, applies NFKC folding
+  (fullwidth, mathematical/styled letters), and maps common Cyrillic/Greek
+  homoglyphs back to Latin. Defeats `ig​nore`, `Ｉｇｎｏｒｅ`, `𝐢𝐠𝐧𝐨𝐫𝐞`,
+  soft-hyphen splits, and `ignоre` (Cyrillic o) bypasses.
+- **`Guard.stats()`** — thread-safe scan/block counters (`inputs_scanned`,
+  `outputs_scanned`, `tool_calls_scanned`, `tool_outputs_scanned`, `blocked`,
+  `blocks_by_code`, `blocks_by_shield`) for production monitoring. Accessible
+  via `guard.metrics` with `reset()`.
+
 ## [0.2.0] — Unreleased
 
 ### Added

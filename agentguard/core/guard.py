@@ -5,12 +5,31 @@ from typing import Any
 
 from agentguard.core.base_shield import BaseShield, ShieldResult
 from agentguard.core.exceptions import GuardBlockedError, GuardShieldError
+from agentguard.core.metrics import GuardMetrics
 from agentguard.core.session import SessionContext
 
 
 class Guard:
     def __init__(self, shields: list[BaseShield] | None = None) -> None:
         self.shields = shields or []
+        self.metrics = GuardMetrics()
+
+    def stats(self) -> dict:
+        """Return a snapshot of scan/block counters for monitoring."""
+        return self.metrics.snapshot()
+
+    def _raise_block(
+        self,
+        shield: BaseShield,
+        result: ShieldResult,
+        default_reason: str,
+        default_code: str,
+    ) -> None:
+        code = result.reason_code or default_code
+        self.metrics.record_block(shield.__class__.__name__, code)
+        raise GuardBlockedError(
+            result.reason or default_reason, code, shield.__class__.__name__
+        )
 
     # ------------------------------------------------------------------ #
     # Decorators                                                           #
@@ -90,6 +109,7 @@ class Guard:
     ) -> ShieldResult:
         """Scan a tool call through all shields. Called by GuardedTool."""
         ctx = ctx or SessionContext()
+        self.metrics.record_scan("tool_calls")
         for shield in self.shields:
             try:
                 result = await shield.scan_tool_call(tool_name, params, ctx)
@@ -98,11 +118,7 @@ class Guard:
             except Exception as exc:
                 raise GuardShieldError(shield.__class__.__name__, str(exc)) from exc
             if not result.allowed:
-                raise GuardBlockedError(
-                    result.reason or "Tool call blocked",
-                    result.reason_code or "TOOL_BLOCKED",
-                    shield.__class__.__name__,
-                )
+                self._raise_block(shield, result, "Tool call blocked", "TOOL_BLOCKED")
         return ShieldResult(allowed=True)
 
     async def scan_tool_output(
@@ -119,6 +135,7 @@ class Guard:
         GuardedTool after the wrapped tool returns.
         """
         ctx = ctx or SessionContext()
+        self.metrics.record_scan("tool_outputs")
         current = output
         for shield in self.shields:
             try:
@@ -128,10 +145,8 @@ class Guard:
             except Exception as exc:
                 raise GuardShieldError(shield.__class__.__name__, str(exc)) from exc
             if not result.allowed:
-                raise GuardBlockedError(
-                    result.reason or "Tool output blocked",
-                    result.reason_code or "TOOL_OUTPUT_BLOCKED",
-                    shield.__class__.__name__,
+                self._raise_block(
+                    shield, result, "Tool output blocked", "TOOL_OUTPUT_BLOCKED"
                 )
             if result.modified_input is not None:
                 current = result.modified_input
@@ -142,6 +157,7 @@ class Guard:
     # ------------------------------------------------------------------ #
 
     async def _scan_input(self, text: str, ctx: SessionContext) -> str:
+        self.metrics.record_scan("inputs")
         current = text
         for shield in self.shields:
             try:
@@ -151,17 +167,14 @@ class Guard:
             except Exception as exc:
                 raise GuardShieldError(shield.__class__.__name__, str(exc)) from exc
             if not result.allowed:
-                raise GuardBlockedError(
-                    result.reason or "Input blocked",
-                    result.reason_code or "INPUT_BLOCKED",
-                    shield.__class__.__name__,
-                )
+                self._raise_block(shield, result, "Input blocked", "INPUT_BLOCKED")
             if result.modified_input is not None:
                 current = result.modified_input
         ctx.request_count += 1
         return current
 
     async def _scan_output(self, text: str, ctx: SessionContext) -> str:
+        self.metrics.record_scan("outputs")
         current = text
         for shield in self.shields:
             try:
@@ -171,11 +184,7 @@ class Guard:
             except Exception as exc:
                 raise GuardShieldError(shield.__class__.__name__, str(exc)) from exc
             if not result.allowed:
-                raise GuardBlockedError(
-                    result.reason or "Output blocked",
-                    result.reason_code or "OUTPUT_BLOCKED",
-                    shield.__class__.__name__,
-                )
+                self._raise_block(shield, result, "Output blocked", "OUTPUT_BLOCKED")
             if result.modified_input is not None:
                 current = result.modified_input
         return current

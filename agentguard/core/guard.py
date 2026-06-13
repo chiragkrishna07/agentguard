@@ -105,6 +105,38 @@ class Guard:
                 )
         return ShieldResult(allowed=True)
 
+    async def scan_tool_output(
+        self,
+        tool_name: str,
+        output: str,
+        ctx: SessionContext | None = None,
+    ) -> str:
+        """Scan content returned by a tool before it re-enters the agent.
+
+        This is the indirect-prompt-injection chokepoint: tool results and
+        retrieved documents are attacker-controlled and must be inspected just
+        like user input. Returns the (possibly sanitised) output. Called by
+        GuardedTool after the wrapped tool returns.
+        """
+        ctx = ctx or SessionContext()
+        current = output
+        for shield in self.shields:
+            try:
+                result = await shield.scan_tool_output(tool_name, current, ctx)
+            except GuardBlockedError:
+                raise
+            except Exception as exc:
+                raise GuardShieldError(shield.__class__.__name__, str(exc)) from exc
+            if not result.allowed:
+                raise GuardBlockedError(
+                    result.reason or "Tool output blocked",
+                    result.reason_code or "TOOL_OUTPUT_BLOCKED",
+                    shield.__class__.__name__,
+                )
+            if result.modified_input is not None:
+                current = result.modified_input
+        return current
+
     # ------------------------------------------------------------------ #
     # Internal scan pipelines                                              #
     # ------------------------------------------------------------------ #

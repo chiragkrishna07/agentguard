@@ -31,6 +31,10 @@ CLEAN_SAMPLES = [
     "Write a haiku about the ocean",
     "How do I reverse a string in Python?",
     "What are the instructions for making pasta?",
+    # A single benign jailbreak-adjacent buzzword must NOT trip strict mode.
+    "There are no restrictions on parking near the venue.",
+    "Enable developer mode in the browser to inspect the page.",
+    "Congratulations, you are now a verified member of the program.",
 ]
 
 
@@ -49,6 +53,21 @@ class TestPromptShieldRules:
         shield = PromptShield(mode="strict", use_ml=False)
         result = await shield.scan_input(clean, ctx)
         assert result.allowed is True, f"False positive on clean input: {clean!r}"
+
+    @pytest.mark.asyncio
+    async def test_lone_weak_keyword_passes_strict_but_blocks_paranoid(self, ctx):
+        text = "There are no restrictions on the public park."
+        assert (await PromptShield(mode="strict", use_canary=False).scan_input(text, ctx)).allowed
+        assert not (
+            await PromptShield(mode="paranoid", use_canary=False).scan_input(text, ctx)
+        ).allowed
+
+    @pytest.mark.asyncio
+    async def test_two_weak_keywords_corroborate_and_block(self, ctx):
+        # Two distinct weak signals together are treated as an injection.
+        shield = PromptShield(mode="strict", use_canary=False)
+        result = await shield.scan_input("jailbreak into god mode", ctx)
+        assert result.allowed is False
 
     @pytest.mark.asyncio
     async def test_fast_mode_uses_rules(self, ctx):

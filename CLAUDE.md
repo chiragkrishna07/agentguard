@@ -28,7 +28,7 @@ CI (`.github/workflows/ci.yml`) runs ruff → mypy → pytest on Python 3.10/3.1
 
 The system is a **shield pipeline**. Everything flows through ordered lists of shields, and the orchestration lives entirely in `core/guard.py`.
 
-- **`BaseShield`** (`core/base_shield.py`) — abstract base with three async hooks every shield may override: `scan_input`, `scan_output`, `scan_tool_call`. Each returns a `ShieldResult(allowed, modified_input, reason, reason_code)`. A shield only overrides the hooks relevant to it (e.g. `ToolValidator` only implements `scan_tool_call`).
+- **`BaseShield`** (`core/base_shield.py`) — abstract base with four async hooks every shield may override: `scan_input`, `scan_output`, `scan_tool_call`, and `scan_tool_output`. Each returns a `ShieldResult(allowed, modified_input, reason, reason_code)`. A shield only overrides the hooks relevant to it (e.g. `ToolValidator` only implements `scan_tool_call`). `scan_tool_output` is the **indirect-injection chokepoint** — it inspects content a tool *returns* (web pages, emails, RAG docs) before it re-enters the agent; `GuardedTool` calls it automatically after the wrapped tool runs.
 
 - **`Guard`** (`core/guard.py`) — holds `shields: List[BaseShield]` and runs three pipelines: `_scan_input`, `_scan_output`, `scan_tool_call`. Key invariants when editing the pipeline:
   - Shields run **in list order**; `modified_input` from one shield becomes the input to the next (this is how PIIRedactor's redacted text feeds downstream).

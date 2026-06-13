@@ -43,6 +43,8 @@ class PIIRedactor(BaseShield):
         language: str = "en",
         score_threshold: float = 0.6,
         engine: Literal["regex", "presidio"] = "regex",
+        redact_output: bool = False,
+        scan_tool_output: bool = False,
     ) -> None:
         if mode not in ("redact", "mask", "tokenize"):
             raise ValueError("mode must be 'redact', 'mask', or 'tokenize'")
@@ -54,6 +56,10 @@ class PIIRedactor(BaseShield):
         self.language = language
         self.score_threshold = score_threshold
         self.engine = engine
+        # Detect+redact PII the model emits (leakage), not just de-tokenize.
+        self.redact_output = redact_output
+        # Detect+redact PII in retrieved/tool content before it re-enters the agent.
+        self.scan_tool_output_flag = scan_tool_output
         self._analyzer = None
         self._anonymizer = None
 
@@ -191,11 +197,28 @@ class PIIRedactor(BaseShield):
 
         return ShieldResult(allowed=True, modified_input=modified)
 
+    def _redact(self, text: str, ctx: SessionContext) -> str | None:
+        if self.engine == "presidio":
+            return self._apply_presidio_redaction(text, ctx)
+        return self._apply_regex_redaction(text, ctx)
+
     async def scan_output(self, text: str, ctx: SessionContext) -> ShieldResult:
+        # tokenize mode re-inserts the user's original PII so the agent's reply
+        # stays coherent across turns — this takes precedence over redaction.
         if self.mode == "tokenize" and ctx._token_map:
             resolved = ctx.resolve_all_tokens(text)
             return ShieldResult(
                 allowed=True,
                 modified_input=resolved if resolved != text else None,
             )
+        # Otherwise optionally redact PII the model itself emitted (leakage).
+        if self.redact_output and self.mode in ("redact", "mask"):
+            return ShieldResult(allowed=True, modified_input=self._redact(text, ctx))
         return ShieldResult(allowed=True)
+
+    async def scan_tool_output(
+        self, tool_name: str, output: str, ctx: SessionContext
+    ) -> ShieldResult:
+        if not self.scan_tool_output_flag or self.mode == "tokenize":
+            return ShieldResult(allowed=True)
+        return ShieldResult(allowed=True, modified_input=self._redact(output, ctx))

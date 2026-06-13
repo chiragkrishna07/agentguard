@@ -83,3 +83,18 @@ class AuditLogger(BaseShield):
             cost_so_far_usd=round(ctx.cost_usd, 6),
         )
         return ShieldResult(allowed=True)
+
+    async def scan_tool_output(
+        self, tool_name: str, output: str, ctx: SessionContext
+    ) -> ShieldResult:
+        self._emit(
+            "tool_output",
+            session_id=ctx.session_id,
+            tool_name=tool_name,
+            output_hash=self._hash(output) if self.include_input_hash else None,
+            output_length=len(output),
+            indirect_injection_flagged=bool(
+                ctx.metadata.get("indirect_injection_detected")
+            ),
+        )
+        return ShieldResult(allowed=True)

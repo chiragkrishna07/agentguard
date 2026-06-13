@@ -2,6 +2,33 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.2.0] — Unreleased
+
+### Added
+- **Indirect prompt injection defense** — new `scan_tool_output` shield hook,
+  wired through `GuardedTool`, so content returned by tools and retrieval steps
+  is inspected for hidden instructions before it re-enters the agent. This is
+  the vector behind real-world incidents (EchoLeak, RAG poisoning). `PromptShield`
+  gains `inspect_tool_output` and `on_indirect` (`"block"` | `"neutralize"`).
+- **`SecretsShield`** — detects and redacts/blocks credentials (AWS keys, GitHub
+  tokens, OpenAI/Anthropic keys, Google API keys, Slack/Stripe/SendGrid tokens,
+  JWTs, PEM private keys) across input, output, and tool output. Prevents secrets
+  leaving the trust boundary to a third-party LLM and stops secret leakage in
+  responses.
+- **Output-side PII redaction** — `PIIRedactor(redact_output=True)` detects and
+  redacts PII the model emits, and `scan_tool_output=True` sanitises PII in
+  retrieved content. tokenize mode still de-tokenizes for multi-turn coherence.
+- `AuditLogger` now records `tool_output` events (hash + length +
+  indirect-injection flag).
+
+### Changed
+- **`PromptShield`** injection rules are now split into strong (single hit
+  blocks) and weak (lone jailbreak buzzwords) tiers. Weak signals only block
+  when corroborated (2+) or in `paranoid` mode, sharply cutting false positives
+  on benign text and retrieved documents while preserving detection of real
+  attacks. Added several strong patterns (`forget everything above`, `act as if
+  you have no restrictions`, …).
+
 ## [0.1.1] — Unreleased
 
 ### Fixed

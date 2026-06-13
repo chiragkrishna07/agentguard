@@ -104,6 +104,38 @@ class TestPIIRedactorRegexEngine:
         assert "10.0.0.1" not in result.modified_input
 
     @pytest.mark.asyncio
+    async def test_output_redaction_off_by_default(self, ctx):
+        shield = PIIRedactor(mode="redact", engine="regex")
+        result = await shield.scan_output("The SSN is 123-45-6789", ctx)
+        assert result.modified_input is None
+
+    @pytest.mark.asyncio
+    async def test_output_redaction_when_enabled(self, ctx):
+        shield = PIIRedactor(mode="redact", engine="regex", redact_output=True)
+        result = await shield.scan_output("The leaked SSN is 123-45-6789", ctx)
+        assert result.modified_input is not None
+        assert "123-45-6789" not in result.modified_input
+        assert "[REDACTED_SSN]" in result.modified_input
+
+    @pytest.mark.asyncio
+    async def test_tokenize_output_takes_precedence_over_redaction(self, ctx):
+        # In tokenize mode, scan_output must restore the user's PII, not redact it.
+        shield = PIIRedactor(mode="tokenize", engine="regex", redact_output=True)
+        await shield.scan_input("Email: dave@example.com", ctx)
+        token = list(ctx._token_map.keys())[0]
+        out = await shield.scan_output(f"Replying to {token}", ctx)
+        assert "dave@example.com" in out.modified_input
+
+    @pytest.mark.asyncio
+    async def test_tool_output_redaction(self, ctx):
+        shield = PIIRedactor(mode="redact", engine="regex", scan_tool_output=True)
+        result = await shield.scan_tool_output(
+            "read_db", "row: ssn 123-45-6789, email x@y.com", ctx
+        )
+        assert result.modified_input is not None
+        assert "123-45-6789" not in result.modified_input
+
+    @pytest.mark.asyncio
     async def test_specific_entities_only(self, ctx):
         shield = PIIRedactor(mode="redact", engine="regex", entities=["EMAIL"])
         result = await shield.scan_input("SSN 123-45-6789 and email test@test.com", ctx)

@@ -58,3 +58,6 @@ secrets.json
 
 # Distribution
 *.whl
+
+# Local docs (not for the repo)
+WALKTHROUGH.md

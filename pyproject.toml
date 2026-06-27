@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Security",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 # Core deps kept minimal — zero-friction install
@@ -48,19 +49,31 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+    "build>=1.0.0",
+    "twine>=5.0.0",
 ]
-all = ["agentguard[presidio,ml,dev]"]
+all = ["pyagentguard[presidio,ml,dev]"]
 
 [project.urls]
-Homepage = "https://github.com/chiragkrishna1732/agentguard"
-Documentation = "https://agentguard.readthedocs.io"
-Repository = "https://github.com/chiragkrishna1732/agentguard"
-Issues = "https://github.com/chiragkrishna1732/agentguard/issues"
+Homepage = "https://github.com/chiragkrishna07/agentguard"
+Documentation = "https://github.com/chiragkrishna07/agentguard#readme"
+Repository = "https://github.com/chiragkrishna07/agentguard"
+Issues = "https://github.com/chiragkrishna07/agentguard/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentguard"]
 # Ship the PEP 561 marker so downstream code type-checks against our hints.
 artifacts = ["agentguard/py.typed"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "agentguard/",
+    "tests/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
 
 # ---------------------------------------------------------------------------
 # Ruff
@@ -70,7 +83,7 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
 # ---------------------------------------------------------------------------

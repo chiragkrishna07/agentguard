@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-AgentGuard is "Helmet.js for AI Agents" — lightweight, framework-agnostic security middleware for production AI agents, distributed as the `agentguard` PyPI package. Core install is dependency-minimal on purpose; heavier capabilities (Presidio NER, DistilBERT ML) are optional extras.
+AgentGuard is "Helmet.js for AI Agents" — lightweight, framework-agnostic security middleware for production AI agents, distributed as the `pyagentguard` PyPI package (import name: `agentguard`). Core install is dependency-minimal on purpose; heavier capabilities (Presidio NER, DistilBERT ML) are optional extras.
 
 ## Commands
 

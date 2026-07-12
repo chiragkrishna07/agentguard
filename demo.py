@@ -25,6 +25,7 @@ from agentguard import (
     PIIRedactor,
     PromptShield,
     ToolValidator,
+    __version__,
 )
 from agentguard.core.exceptions import GuardBlockedError
 from agentguard.core.session import SessionContext
@@ -153,7 +154,7 @@ async def print_banner(fast: bool = False) -> None:
     lines = [
         "",
         f"  {bold(cyan('▄' * W))}",
-        f"  {bold(cyan('█'))} {bold(white('AgentGuard v0.1.0  —  Security Demo')):^{W+8}} {bold(cyan('█'))}",
+        f"  {bold(cyan('█'))} {bold(white(f'AgentGuard v{__version__}  —  Security Demo')):^{W+8}} {bold(cyan('█'))}",
         f"  {bold(cyan('█'))} {dim(_subtitle):^{W+4}} {bold(cyan('█'))}",
         f"  {bold(cyan('▀' * W))}",
         "",

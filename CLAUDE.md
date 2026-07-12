@@ -29,20 +29,21 @@ CI (`.github/workflows/ci.yml`) runs ruff → mypy → pytest on Python 3.10/3.1
 
 The system is a **shield pipeline**. Everything flows through ordered lists of shields, and the orchestration lives entirely in `core/guard.py`.
 
-- **`BaseShield`** (`core/base_shield.py`) — abstract base with four async hooks every shield may override: `scan_input`, `scan_output`, `scan_tool_call`, and `scan_tool_output`. Each returns a `ShieldResult(allowed, modified_input, reason, reason_code)`. A shield only overrides the hooks relevant to it (e.g. `ToolValidator` only implements `scan_tool_call`). `scan_tool_output` is the **indirect-injection chokepoint** — it inspects content a tool *returns* (web pages, emails, RAG docs) before it re-enters the agent; `GuardedTool` calls it automatically after the wrapped tool runs.
+- **`BaseShield`** (`core/base_shield.py`) — async hooks include `scan_input`, `scan_output`, `scan_tool_arguments`, `scan_tool_call`, `scan_tool_output`, and the content-free `on_decision` observer. Each scanning hook returns `ShieldResult(allowed, modified_input, reason, reason_code)`. `scan_tool_arguments` is the DLP/sanitization phase for model-generated arguments; `scan_tool_call` is the authorization/policy phase. `scan_tool_output` is the **indirect-injection chokepoint** for web pages, email, RAG, and other returned data.
 
-- **`Guard`** (`core/guard.py`) — holds `shields: List[BaseShield]` and runs three pipelines: `_scan_input`, `_scan_output`, `scan_tool_call`. Key invariants when editing the pipeline:
+- **`Guard`** (`core/guard.py`) — holds `shields: List[BaseShield]` and exposes type-preserving `scan_input`, `scan_output`, `scan_tool_arguments`, `scan_tool_call`, and `scan_tool_output` pipelines. Key invariants when editing the pipeline:
   - Shields run **in list order**; `modified_input` from one shield becomes the input to the next (this is how PIIRedactor's redacted text feeds downstream).
   - `result.allowed == False` raises `GuardBlockedError` (carries `reason_code` + `shield_name`).
   - **Fail-closed**: any unexpected exception inside a shield is wrapped in `GuardShieldError` and propagates — it does *not* silently pass through. Preserve this when adding error handling.
-  - Entry points: `@guard.protect` (async fns), `@guard.protect_sync` (sync, wraps via `asyncio.run`), or explicit `guard.run(...)`. The protected function's first positional arg is always the query string; a `SessionContext` can be threaded via the `_guard_ctx` kwarg.
+  - Entry points: `@guard.protect` (async fns), `@guard.protect_sync` (sync, wraps via `asyncio.run`), or explicit `guard.run(...)`. Inputs and outputs may be JSON-like structures; non-string scalars and container types must be preserved. A `SessionContext` can be threaded via `_guard_ctx`.
+  - Structured traversal must remain bounded and cycle-aware. Schema keys/numeric scalars are visible for block decisions, but a shield must never rewrite a key or silently change a scalar type.
   - Every block goes through `Guard._raise_block`, which records the block in `self.metrics` (`core/metrics.py`, thread-safe `GuardMetrics`) before raising. `guard.stats()` returns a snapshot. When adding a new block site, route it through `_raise_block` so metrics stay complete.
 
 - **`SessionContext`** (`core/session.py`) — per-session state passed to every shield: `session_id`, `cost_usd`, `request_count`, `metadata`, plus a `_token_map` for PII tokenize/de-tokenize round-tripping (`store_token`/`resolve_token`/`resolve_all_tokens`). Shields that accumulate state (cost, rate) read/write this rather than holding global state, except when `per="global"`.
 
-- **Shields** (`shields/`) — each is a `BaseShield` subclass: `PromptShield` (injection detection, rule tiers + optional ML/canary), `PIIRedactor` (regex default / Presidio optional), `CostLimit` (tiktoken token counting + kill switch), `RateLimit` (token bucket), `ToolValidator` (glob allow/block + param rules), `HumanGate` (async approval via notifiers), `AuditLogger` (hashed JSON trail — never logs raw input/output).
+- **Shields** (`shields/`) — content/DLP (`PromptShield`, `SecretsShield`, `PIIRedactor`, `ContentPolicyShield`), tool/egress (`ToolValidator`, `NetworkPolicyShield`, `ToolCallBudget`, `HumanGate`), resources (`SizeLimit`, `RateLimit`, `CostLimit`), and privacy-preserving audit (`AuditLogger`).
 
-- **`GuardedTool`** (`tools.py`) — wraps any sync/async callable so calling it runs `guard.scan_tool_call(name, kwargs, ctx)` before the real call. This is the bridge between tool execution and the `scan_tool_call` hook.
+- **`GuardedTool`** (`tools.py`) — binds positional/keyword/variadic arguments, propagates `guard.scan_tool_arguments(...)` rewrites into the real invocation, validates policy before execution, awaits awaitable results, and scans structured tool output.
 
 - **Adapters** (`adapters/`) — `GuardLangGraph`, `GuardOpenAI`, `GuardCrewAI` wrap framework-native nodes/clients/tools to inject the guard. Keep these thin: they should delegate to `Guard`/`GuardedTool`, not reimplement scanning.
 

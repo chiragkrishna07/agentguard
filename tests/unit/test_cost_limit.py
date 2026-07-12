@@ -18,6 +18,23 @@ def _mock_encoder(token_count: int):
 
 
 class TestCostLimit:
+    def test_invalid_configuration(self):
+        with pytest.raises(ValueError):
+            CostLimit(max_usd=0)
+        with pytest.raises(ValueError):
+            CostLimit(max_usd=1, per="tenant")
+        with pytest.raises(ValueError):
+            CostLimit(max_usd=1, on_limit="maybe")
+        with pytest.raises(ValueError):
+            CostLimit(max_usd=1, pricing={"broken": {"input": 1}})
+        with pytest.raises(ValueError):
+            CostLimit(max_usd=float("nan"))
+        with pytest.raises(ValueError):
+            CostLimit(
+                max_usd=1,
+                pricing={"broken": {"input": float("nan"), "output": 1}},
+            )
+
     @pytest.mark.asyncio
     async def test_allows_within_limit(self, ctx):
         shield = CostLimit(max_usd=10.0, model="gpt-4o")
@@ -48,6 +65,27 @@ class TestCostLimit:
         with patch.object(shield, "_get_encoder", return_value=_mock_encoder(50)):
             await shield.scan_output("response text", ctx)
         assert ctx.cost_usd > 0
+
+    @pytest.mark.asyncio
+    async def test_output_that_crosses_budget_is_blocked(self, ctx):
+        shield = CostLimit(max_usd=0.00001, model="gpt-4o")
+        with patch.object(shield, "_get_encoder", return_value=_mock_encoder(10_000)):
+            result = await shield.scan_output("expensive response", ctx)
+        assert result.allowed is False
+        assert result.reason_code == "COST_LIMIT_EXCEEDED"
+        assert ctx.cost_usd > shield.max_usd
+        assert ctx.metadata["cost_limit"]["direction"] == "output"
+        assert ctx.metadata["cost_limit"]["actual_total_usd"] == pytest.approx(
+            ctx.cost_usd
+        )
+
+    def test_estimate_and_remaining_do_not_mutate(self, ctx):
+        shield = CostLimit(max_usd=10, model="gpt-4o")
+        with patch.object(shield, "_get_encoder", return_value=_mock_encoder(100)):
+            estimate = shield.estimate_cost(input_text="x", output_text="y")
+        assert estimate > 0
+        assert shield.remaining_usd(ctx) == 10
+        assert ctx.cost_usd == 0
 
     @pytest.mark.asyncio
     async def test_warn_mode_does_not_block(self, ctx):

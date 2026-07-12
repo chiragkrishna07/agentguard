@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyagentguard"
-version = "0.12.0"
+version = "0.13.0"
 description = "Helmet.js for AI Agents — Lightweight security middleware for production AI agents"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -59,6 +59,8 @@ Homepage = "https://github.com/chiragkrishna07/agentguard"
 Documentation = "https://github.com/chiragkrishna07/agentguard#readme"
 Repository = "https://github.com/chiragkrishna07/agentguard"
 Issues = "https://github.com/chiragkrishna07/agentguard/issues"
+Changelog = "https://github.com/chiragkrishna07/agentguard/blob/main/CHANGELOG.md"
+Security = "https://github.com/chiragkrishna07/agentguard/security/policy"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentguard"]
@@ -70,6 +72,7 @@ include = [
     "agentguard/",
     "tests/",
     "README.md",
+    "SECURITY.md",
     "LICENSE",
     "CHANGELOG.md",
     "pyproject.toml",

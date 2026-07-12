@@ -21,17 +21,30 @@ class TestPresets:
         guard = recommended()
         assert _names(guard) == [
             "SizeLimit",
+            "RateLimit",
             "PromptShield",
             "SecretsShield",
             "PIIRedactor",
+            "ToolValidator",
+            "ToolCallBudget",
+            "NetworkPolicyShield",
             "CostLimit",
             "AuditLogger",
         ]
 
     def test_recommended_without_cost_or_audit(self):
-        guard = recommended(max_usd=None, audit=False)
+        guard = recommended(
+            max_usd=None,
+            audit=False,
+            requests_per_minute=None,
+            network_policy=False,
+            tool_budget=False,
+        )
         assert "CostLimit" not in _names(guard)
         assert "AuditLogger" not in _names(guard)
+        assert "RateLimit" not in _names(guard)
+        assert "NetworkPolicyShield" not in _names(guard)
+        assert "ToolCallBudget" not in _names(guard)
 
     def test_recommended_cost_uses_model_and_limit(self):
         guard = recommended(max_usd=12.0, model="gpt-4o-mini")

@@ -10,6 +10,8 @@ Steps to cut a new AgentGuard release. Targets PyPI via Hatchling.
 - [ ] `pytest tests/unit/` — all green
 - [ ] `python -m tests.benchmarks.bench_detection` — strict mode at 100% recall /
       100% precision / 0% FPR on the corpus (no regressions)
+- [ ] Run the offline cross-project copilot evaluation against the built wheel;
+      record required-policy passes/failures without modifying the target app
 - [ ] `CHANGELOG.md` has a dated entry for the new version
 - [ ] Version bumped in **both** `pyproject.toml` and `agentguard/__init__.py`
       (they must match)
@@ -19,10 +21,13 @@ Steps to cut a new AgentGuard release. Targets PyPI via Hatchling.
 - [ ] `python -m build` (produces `dist/*.whl` and `dist/*.tar.gz`)
 - [ ] Wheel includes `agentguard/py.typed`:
       `python -c "import zipfile,glob; w=sorted(glob.glob('dist/*.whl'))[-1]; print([n for n in zipfile.ZipFile(w).namelist() if n.endswith('py.typed')])"`
-- [ ] `pip install dist/agentguard-*.whl` in a fresh venv, then
+- [ ] `pip install dist/pyagentguard-*.whl` in a fresh venv, then
       `python -c "import agentguard; print(agentguard.__version__)"`
 - [ ] Smoke test the import surface:
-      `python -c "from agentguard import Guard, PromptShield, SecretsShield, PIIRedactor, SizeLimit; from agentguard.presets import recommended; recommended(max_usd=None, audit=False)"`
+      `python -c "from agentguard import Guard, PromptShield, SecretsShield, PIIRedactor, SizeLimit, NetworkPolicyShield, ToolCallBudget, ContentPolicyShield; from agentguard.presets import recommended; recommended(max_usd=None, audit=False)"`
+- [ ] Install the wheel in an empty environment and run a structured
+      input/output plus `GuardedTool` smoke test with an explicit
+      `SessionContext` (not from the source checkout)
 
 ## Publish
 

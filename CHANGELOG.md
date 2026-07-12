@@ -2,6 +2,142 @@
 
 All notable changes to AgentGuard are documented here.
 
+## [0.13.0] — Unreleased
+
+This release is a general-purpose security hardening pass informed by the OWASP
+LLM Top 10, OWASP Agentic Top 10, and NIST AI RMF Generative AI Profile. The
+mapping is documented in `SECURITY.md`; it is not a compliance certification.
+
+### Added
+
+- Public, type-preserving `Guard.scan_input()` and `Guard.scan_output()` APIs
+  for nested dict/list/tuple values, with cycle, depth, node, aggregate
+  character, and UTF-8 byte limits (including schema keys).
+- `Guard.scan_tool_arguments()` and end-to-end propagation through
+  `GuardedTool`, OpenAI tool calls, and LangGraph/LangChain tool calls. Content
+  sanitization now changes the arguments that execute; tool policy runs once on
+  the sanitized structure.
+- `NetworkPolicyShield`: per-tool host/scheme policies, credentialed-URL
+  rejection, IDNA handling, private/loopback/link-local/reserved address and
+  legacy numeric-IP blocking, URL count/length limits, and an optional resolver.
+- `ToolCallBudget`: total, per-tool, distinct-tool, identical-loop, argument
+  byte/depth/node limits, plus explicit session reset.
+- `ContentPolicyShield`, `ContentRule`, and `ContentVerdict`: provider-neutral
+  sync/async moderation callbacks, category thresholds, deterministic policy
+  rules, timeouts, and fail-closed error behavior.
+- A content-free guard-decision observer hook. `AuditLogger` now records blocks
+  even when an earlier shield makes the decision.
+- `RateLimit(per="user")`, custom key functions, retry metadata, TTL/LRU-bounded
+  bucket storage, and configurable warn behavior.
+- UTF-8 byte limits in `SizeLimit`; independent stream character, byte, and
+  chunk ceilings in `StreamGuard`.
+- A provisional streaming-output hook prevents incremental re-scans from
+  double-charging `CostLimit`, duplicating audit events, or mutating final
+  session tokenization state.
+- Tool authorization callbacks, per-tool validators, closed parameter sets,
+  dotted paths, choices, min lengths, async predicates, identity requirements,
+  and payload/name bounds in `ToolValidator`.
+- A documented threat model, secure deployment checklist, standards mapping,
+  and explicit limitations in `SECURITY.md`.
+
+### Security hardening
+
+- `PromptShield` now performs bounded recursive Base64, URL, HTML-entity, and
+  hex decoding; normalizes every decoded layer; detects semantic synonyms and
+  multilingual injections; and uses a bounded rolling session window for
+  attacks split across turns. Tool-argument scans are stateless and inspect
+  adjacent structured fields without polluting user-turn history.
+- Prompt rules were precision-gated against travel/support false positives such
+  as terminal directions, transfer instructions, “from now on departing,” and
+  traveler-role comparisons.
+- `SecretsShield` now removes Unicode format-character evasion, redacts complete
+  PEM blocks, covers more provider credentials, and adds contextual bearer,
+  basic-auth, database URL, and labelled credential rules with placeholder
+  suppression. Nested tool arguments are blocked by default, with propagated
+  redact/mask alternatives.
+- `PIIRedactor` adds context/checksum-validated international identifiers,
+  including passport/MRZ, Aadhaar/VID, PAN/GSTIN, Indian voter/phone/UPI, NINO,
+  NHS, SIN, CPF/CNPJ, TFN/Medicare, EIN, bank and national IDs. Birth dates now
+  require immediate DOB context so travel dates remain intact.
+- PII redaction is JSON-aware, including numeric card values. Tokenized-value
+  storage is bounded, resolved raw values are removed by default, and explicit
+  teardown cleanup is available.
+- `AuditLogger` no longer emits raw session/user IDs by default. It uses keyed
+  HMAC content fingerprints and pseudonymous identities/tool/schema names,
+  with explicit legacy compatibility modes.
+- `HumanGate` hides raw tool parameters by default, rejects unknown approval
+  IDs, pseudonymizes session/schema metadata, uses high-entropy gate IDs, bounds
+  pending approvals, validates trigger configuration, and supports a deliberate
+  sanitizer.
+- Slack/generic webhook notifiers require HTTPS by default, reject credentialed
+  endpoints, bound payloads, hide URL-bearing HTTP errors, escape Slack markup,
+  and support timestamp-bound webhook HMAC signatures.
+- Cost ceilings now validate configuration, expose estimates/remaining budget,
+  and block an output that crosses the configured ceiling (while documenting
+  that generation spend has already occurred). A blocked generated output is
+  now charged to the estimate so repeated over-budget generations do not appear
+  free to subsequent requests.
+- Supported mutable inputs, tool arguments, tool results, and model outputs are
+  snapshotted before the first asynchronous policy wait, closing argument and
+  result time-of-check/time-of-use races.
+- `ToolValidator` recursively enforces closed dotted schemas and rejects dual
+  literal/nested representations of the same path, preventing validation of a
+  decoy value while a tool consumes an unvalidated one.
+- URL discovery now covers common schemeless `target`, `origin`, `ip`,
+  `ip_address`, and DSN-style destination fields without treating ordinary
+  travel destinations as hosts.
+- `GuardedTool` requires an explicit wrapper/per-call `SessionContext` when a
+  stateful tool budget is installed, allowing multiple wrappers to share one
+  real session without silently mixing tenants. Raw tool exceptions are hidden
+  behind `GuardToolError` by default.
+- Incremental streaming refuses classifiers and other full-output policies by
+  default. An explicitly named unsafe override remains for legacy deployments
+  that accept partial-policy coverage.
+
+### Framework and correctness fixes
+
+- `Guard.run()` and decorators preserve structured agent return types instead
+  of coercing them to Python strings.
+- `GuardedTool` supports positional, keyword, variadic, sync, async, and
+  sync-callable/awaitable-returning tools; structured tool output rewrites are
+  propagated without lossy stringification.
+- OpenAI, LangGraph, and CrewAI adapters sanitize typed outputs and tool
+  arguments, isolate bounded session contexts, and scan untrusted structured
+  state rather than only a single conventional input field. OpenAI and
+  LangGraph also treat persisted assistant/tool/peer message history as
+  untrusted context and inspect it before committing the current user turn.
+- LangGraph no longer derives authorization/session identity from model-visible
+  state by default, and CrewAI no longer trusts identity-shaped input fields.
+  Explicit compatibility flags retain the old behavior for callers that prove
+  those fields come from authenticated runtime configuration.
+- LangGraph now validates both modern `tool_calls` and legacy `function_call`
+  outputs. CrewAI and generic document-like results scan every public payload
+  field, including metadata, parsed models, and task outputs, rather than a
+  small field allowlist.
+- Structured rewrite boundaries catch injections split across fields, expose
+  schema keys and numeric scalars for block decisions, and fail closed rather
+  than rewriting a key or changing a scalar type.
+- `recommended()` and `paranoid()` now include general resource, tool-loop, and
+  outbound-network controls. Applications should still supply explicit tool and
+  domain allowlists.
+
+### Compatibility notes
+
+- Version advanced to `0.13.0` in both package metadata and the import surface.
+- `WebhookNotifier` uses timestamp-bound `v1` signatures by default. Select
+  `signature_version="legacy"` only while migrating an existing receiver.
+- `RateLimit` now rejects a non-positive burst rather than silently coercing it.
+- HumanGate approval methods return `False` for unknown or expired gate IDs.
+- `GuardLangGraph(trust_state_identity=True)` and
+  `GuardCrewAI(trust_input_identity=True)` are now required to opt into legacy
+  identity derivation from state/input fields; explicit contexts and LangGraph
+  runtime `configurable` identity remain supported without those flags.
+- `GuardedTool` no longer propagates raw tool/provider exception messages by
+  default; catch `GuardToolError`. Setting `Guard(expose_internal_errors=True)`
+  deliberately restores diagnostic details and exception chaining.
+- `StreamGuard(mode="incremental")` now rejects shields that require a complete
+  output unless `allow_unsafe_incremental=True` is explicitly selected.
+
 ## [0.12.0] — Unreleased
 
 ### Added
@@ -18,8 +154,9 @@ All notable changes to AgentGuard are documented here.
   chunk boundary: it emitted the token's prefix before the full match formed,
   then over-sliced after redaction shortened the buffer. Rewritten to emit only
   a *frozen* prefix ending at a whitespace boundary, so no whitespace-delimited
-  token is ever split — incremental output now matches buffer mode exactly. (The
-  whitespace-containing-match caveat is documented; buffer mode is exact.)
+  token is ever split. It matches buffer mode for the covered
+  whitespace-delimited secret/PII cases. Policies whose matches contain
+  whitespace or require the full response must use buffer mode.
 - **Multimodal injection bypass**: the adapters scanned each text part in
   isolation, so an injection split across two parts ("disregard all" +
   "previous instructions") slipped through. Adapters now scan the *joined* text

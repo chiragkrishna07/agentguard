@@ -15,6 +15,18 @@ class GuardShieldError(AgentGuardError):
         super().__init__(f"Shield '{shield_name}' raised an unexpected error: {detail}")
 
 
+class GuardToolError(AgentGuardError):
+    """Content-safe wrapper for an exception raised by a guarded tool."""
+
+    def __init__(self, tool_name: str, detail: str | None = None) -> None:
+        self.tool_name = tool_name
+        self.reason_code = "TOOL_EXECUTION_FAILED"
+        message = f"Guarded tool {tool_name!r} failed"
+        if detail:
+            message += f": {detail}"
+        super().__init__(message)
+
+
 class HumanGateSyncError(AgentGuardError):
     pass
 

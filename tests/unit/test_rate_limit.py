@@ -14,6 +14,18 @@ class TestRateLimit:
         with pytest.raises(ValueError):
             RateLimit(requests_per_minute=0)
 
+    def test_invalid_configuration(self):
+        with pytest.raises(ValueError):
+            RateLimit(requests_per_minute=1, burst=0)
+        with pytest.raises(ValueError):
+            RateLimit(requests_per_minute=1, per="tenant")
+        with pytest.raises(ValueError):
+            RateLimit(requests_per_minute=1, max_buckets=0)
+        with pytest.raises(ValueError):
+            RateLimit(requests_per_minute=float("nan"))
+        with pytest.raises(ValueError):
+            RateLimit(requests_per_minute=1, key_fn="tenant")
+
     @pytest.mark.asyncio
     async def test_first_request_always_allowed(self, ctx):
         shield = RateLimit(requests_per_minute=10, burst=1)
@@ -44,6 +56,45 @@ class TestRateLimit:
         # ctx1 bucket is empty; ctx2 starts fresh
         result = await shield.scan_input("req", ctx2)
         assert result.allowed is True
+
+    @pytest.mark.asyncio
+    async def test_per_user_spans_sessions_and_requires_identity(self):
+        shield = RateLimit(requests_per_minute=1, burst=1, per="user")
+        anonymous = await shield.scan_input("x", SessionContext())
+        assert anonymous.allowed is False
+        assert anonymous.reason_code == "RATE_LIMIT_IDENTITY_REQUIRED"
+
+        one = SessionContext(user_id="same-user")
+        two = SessionContext(user_id="same-user")
+        assert (await shield.scan_input("x", one)).allowed
+        assert not (await shield.scan_input("x", two)).allowed
+
+    @pytest.mark.asyncio
+    async def test_custom_key_function(self):
+        shield = RateLimit(
+            requests_per_minute=1,
+            burst=1,
+            key_fn=lambda ctx: str(ctx.metadata.get("tenant_id", "")),
+        )
+        ctx = SessionContext(metadata={"tenant_id": "t-1"})
+        assert (await shield.scan_input("x", ctx)).allowed
+        assert not (await shield.scan_input("x", ctx)).allowed
+
+    @pytest.mark.asyncio
+    async def test_bucket_storage_is_bounded(self):
+        shield = RateLimit(requests_per_minute=1, max_buckets=2)
+        for _ in range(5):
+            assert (await shield.scan_input("x", SessionContext())).allowed
+        assert len(shield._buckets) == 2
+
+    @pytest.mark.asyncio
+    async def test_limit_records_retry_metadata(self):
+        shield = RateLimit(requests_per_minute=1, burst=1)
+        ctx = SessionContext()
+        assert (await shield.scan_input("x", ctx)).allowed
+        result = await shield.scan_input("x", ctx)
+        assert not result.allowed
+        assert ctx.metadata["rate_limit"]["retry_after_seconds"] > 0
 
     @pytest.mark.asyncio
     async def test_global_scope_shared_across_sessions(self):

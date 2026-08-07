@@ -2,6 +2,14 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+# Per-call provenance for an inbound peer message. ``Guard.scan_agent_message``
+# writes these for the duration of one scan and restores whatever was there
+# before, so a shield can read the envelope without every hook signature
+# growing a parameter. Kept here because both the guard and the shields already
+# depend on this module; putting them in either would create an import cycle.
+AGENT_SENDER_KEY = "agentguard.agent_sender"
+AGENT_ENVELOPE_KEY = "agentguard.agent_envelope"
+
 
 @dataclass
 class SessionContext:

@@ -15,6 +15,9 @@ class GuardMetrics:
     outputs_scanned: int = 0
     tool_calls_scanned: int = 0
     tool_outputs_scanned: int = 0
+    memory_writes_scanned: int = 0
+    memory_reads_scanned: int = 0
+    agent_messages_scanned: int = 0
     blocked: int = 0
     blocks_by_code: dict[str, int] = field(default_factory=dict)
     blocks_by_shield: dict[str, int] = field(default_factory=dict)
@@ -39,6 +42,9 @@ class GuardMetrics:
                 "outputs_scanned": self.outputs_scanned,
                 "tool_calls_scanned": self.tool_calls_scanned,
                 "tool_outputs_scanned": self.tool_outputs_scanned,
+                "memory_writes_scanned": self.memory_writes_scanned,
+                "memory_reads_scanned": self.memory_reads_scanned,
+                "agent_messages_scanned": self.agent_messages_scanned,
                 "blocked": self.blocked,
                 "blocks_by_code": dict(self.blocks_by_code),
                 "blocks_by_shield": dict(self.blocks_by_shield),
@@ -50,6 +56,9 @@ class GuardMetrics:
             self.outputs_scanned = 0
             self.tool_calls_scanned = 0
             self.tool_outputs_scanned = 0
+            self.memory_writes_scanned = 0
+            self.memory_reads_scanned = 0
+            self.agent_messages_scanned = 0
             self.blocked = 0
             self.blocks_by_code.clear()
             self.blocks_by_shield.clear()

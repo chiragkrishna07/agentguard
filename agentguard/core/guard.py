@@ -2,7 +2,7 @@ import asyncio
 import functools
 import inspect
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime, time
 from enum import Enum
@@ -20,7 +20,11 @@ from agentguard.core.exceptions import (
     HumanGateSyncError,
 )
 from agentguard.core.metrics import GuardMetrics
-from agentguard.core.session import SessionContext
+from agentguard.core.session import (
+    AGENT_ENVELOPE_KEY,
+    AGENT_SENDER_KEY,
+    SessionContext,
+)
 
 _ContentT = TypeVar("_ContentT")
 _CONTENT_ATTRIBUTES = (
@@ -710,6 +714,55 @@ class Guard:
             GuardDecision(flow="tool_call", allowed=True, tool_name=tool_name), ctx
         )
 
+    async def scan_tool_definitions(
+        self,
+        definitions: Any,
+        ctx: SessionContext | None = None,
+    ) -> None:
+        """Validate a tool catalog before any of it is offered to the model.
+
+        Tool definitions are configuration in a local codebase but untrusted
+        input in an MCP/plugin ecosystem: the ``description`` is model-visible
+        instruction surface, and a remote server can change it after approval.
+        Shields implementing ``register_all`` (see
+        :class:`~agentguard.shields.tool_integrity.ToolIntegrityShield`) inspect
+        and pin the catalog here.
+
+        Raises :class:`GuardBlockedError` on the first violation so a poisoned or
+        mutated catalog fails closed at startup rather than mid-conversation.
+        Shields without a registration hook are skipped.
+        """
+        ctx = ctx or SessionContext()
+        for shield in self.shields:
+            register_all = getattr(shield, "register_all", None)
+            if not callable(register_all):
+                continue
+            try:
+                result = register_all(definitions)
+                if inspect.isawaitable(result):
+                    result = await result
+            except GuardBlockedError as exc:
+                await self._handle_raised_block(exc, "tool_call", ctx)
+                if self.expose_internal_errors:
+                    raise
+                raise exc from None
+            except Exception as exc:
+                self._raise_internal_error(shield.__class__.__name__, exc)
+            if not isinstance(result, ShieldResult):
+                self._raise_internal_error(
+                    shield.__class__.__name__,
+                    TypeError("register_all must return a ShieldResult"),
+                )
+            if not result.allowed:
+                await self._raise_block(
+                    shield,
+                    result,
+                    "Tool definition blocked",
+                    "TOOL_DEFINITION_BLOCKED",
+                    "tool_call",
+                    ctx,
+                )
+
     async def scan_tool_arguments(
         self,
         tool_name: str,
@@ -774,6 +827,133 @@ class Guard:
             default_code="TOOL_OUTPUT_BLOCKED",
             tool_name=tool_name,
         )
+
+    async def scan_memory_write(
+        self,
+        content: _ContentT,
+        ctx: SessionContext | None = None,
+    ) -> _ContentT:
+        """Scan content before it is committed to durable agent memory.
+
+        This is the persistence chokepoint for memory/context poisoning. Content
+        that reaches long-term storage is replayed into model context on every
+        later turn, so a single poisoned write becomes a standing instruction
+        that outlives its session. Call this in the write path of your memory
+        store, vector index, or summary buffer::
+
+            safe = await guard.scan_memory_write(summary, ctx)
+            await store.put(session_id, safe)
+
+        Returns the sanitized value in its original shape; raises
+        :class:`GuardBlockedError` if a shield denies the write.
+        """
+        ctx = ctx or SessionContext()
+
+        async def scanner(shield: BaseShield, text: str) -> ShieldResult:
+            return await shield.scan_memory_write(text, ctx)
+
+        return await self._scan_content(
+            content,
+            ctx,
+            flow="memory_write",
+            metric="memory_writes",
+            scanner=scanner,
+            default_reason="Memory write blocked",
+            default_code="MEMORY_WRITE_BLOCKED",
+        )
+
+    async def scan_memory_read(
+        self,
+        content: _ContentT,
+        ctx: SessionContext | None = None,
+    ) -> _ContentT:
+        """Scan stored memory as it is loaded back into model context.
+
+        Write-time scanning cannot cover records written by another process, an
+        unguarded earlier deployment, or a store shared between agents. Scanning
+        on read makes the boundary independent of the record's origin::
+
+            raw = await store.get(session_id)
+            safe = await guard.scan_memory_read(raw, ctx)
+        """
+        ctx = ctx or SessionContext()
+
+        async def scanner(shield: BaseShield, text: str) -> ShieldResult:
+            return await shield.scan_memory_read(text, ctx)
+
+        return await self._scan_content(
+            content,
+            ctx,
+            flow="memory_read",
+            metric="memory_reads",
+            scanner=scanner,
+            default_reason="Memory read blocked",
+            default_code="MEMORY_READ_BLOCKED",
+        )
+
+    async def scan_agent_message(
+        self,
+        content: _ContentT,
+        sender: str,
+        ctx: SessionContext | None = None,
+        *,
+        envelope: Mapping[str, Any] | None = None,
+    ) -> _ContentT:
+        """Scan a message arriving from another agent before it enters context.
+
+        In a multi-agent system this is the boundary that is usually missing.
+        Peer output is routed straight into the receiving agent's prompt, and
+        agents treat a teammate's words as more trustworthy than a user's — so a
+        hostile or compromised peer gets an instruction channel that no
+        input-side shield ever sees. Call this on every inbound peer message::
+
+            safe = await guard.scan_agent_message(msg.text, sender="planner", ctx=ctx)
+
+        ``sender`` is a required positional argument rather than an option
+        because an unattributed peer message cannot be authorized at all, and a
+        parameter that is easy to omit is a parameter that gets omitted.
+        ``envelope`` carries transport metadata a shield may need to verify the
+        sender's claim — typically ``signature``, ``nonce``, and ``timestamp``.
+
+        Both are exposed to shields through ``ctx.metadata`` under
+        :data:`~agentguard.core.session.AGENT_SENDER_KEY` and
+        :data:`~agentguard.core.session.AGENT_ENVELOPE_KEY` for the duration of
+        this call, then restored. Returns the sanitized value in its original
+        shape; raises :class:`GuardBlockedError` if a shield denies the message.
+        """
+        if not isinstance(sender, str) or not sender.strip():
+            raise ValueError("sender must be a non-empty string")
+        ctx = ctx or SessionContext()
+
+        async def scanner(shield: BaseShield, text: str) -> ShieldResult:
+            return await shield.scan_agent_message(text, ctx)
+
+        # Restore rather than delete: a caller may legitimately keep a standing
+        # value here, and a scan must not silently rewrite the caller's context.
+        missing = object()
+        prior_sender = ctx.metadata.get(AGENT_SENDER_KEY, missing)
+        prior_envelope = ctx.metadata.get(AGENT_ENVELOPE_KEY, missing)
+        ctx.metadata[AGENT_SENDER_KEY] = sender
+        ctx.metadata[AGENT_ENVELOPE_KEY] = dict(envelope) if envelope else {}
+        try:
+            return await self._scan_content(
+                content,
+                ctx,
+                flow="agent_message",
+                metric="agent_messages",
+                scanner=scanner,
+                default_reason="Agent message blocked",
+                default_code="AGENT_MESSAGE_BLOCKED",
+            )
+        finally:
+            for key, prior in (
+                (AGENT_SENDER_KEY, prior_sender),
+                (AGENT_ENVELOPE_KEY, prior_envelope),
+            ):
+                if prior is missing:
+                    ctx.metadata.pop(key, None)
+                else:
+                    ctx.metadata[key] = prior
 
     async def scan_input(
         self,

@@ -5,7 +5,15 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from agentguard.core.session import SessionContext
 
-GuardFlow = Literal["input", "output", "tool_call", "tool_output"]
+GuardFlow = Literal[
+    "input",
+    "output",
+    "tool_call",
+    "tool_output",
+    "memory_write",
+    "memory_read",
+    "agent_message",
+]
 
 
 @dataclass
@@ -114,6 +122,46 @@ class BaseShield(ABC):
         sanitise that content. ``modified_input`` rewrites the tool output.
         """
         return ShieldResult(allowed=True)
+
+    async def scan_memory_write(self, text: str, ctx: "SessionContext") -> ShieldResult:
+        """Scan content on its way into durable agent memory.
+
+        Anything an agent persists — conversation summaries, scratchpad notes,
+        retrieved documents, learned "preferences" — becomes an instruction
+        surface on every later turn. A single poisoned write therefore outlives
+        the session that created it, which is what separates memory poisoning
+        from ordinary indirect injection.
+
+        The default reuses the shield's tool-output policy, because a memory
+        write carries the same trust level as freshly retrieved content.
+        """
+        return await self.scan_tool_output("memory", text, ctx)
+
+    async def scan_memory_read(self, text: str, ctx: "SessionContext") -> ShieldResult:
+        """Scan stored memory as it is loaded back into model context.
+
+        Write-time scanning alone is not sufficient: a store can be written by
+        another process, migrated from an unguarded deployment, or shared
+        between agents. Re-checking on read makes the boundary hold regardless
+        of how the record got there.
+        """
+        return await self.scan_memory_write(text, ctx)
+
+    async def scan_agent_message(self, text: str, ctx: "SessionContext") -> ShieldResult:
+        """Scan a message arriving from another agent.
+
+        Multi-agent frameworks route peer output straight into the receiving
+        agent's context, and agents default to trusting collaborating peers.
+        That makes a peer message the least-guarded instruction surface in a
+        multi-agent system: it carries the authority of a teammate while being
+        no more trustworthy than the web page or database row it was derived
+        from. A compromised or hostile peer exploits exactly this gap.
+
+        The default reuses the shield's tool-output policy, because a peer
+        message is retrieved content that happens to arrive over a different
+        transport. Overriding is only necessary for peer-specific policy.
+        """
+        return await self.scan_tool_output("agent_message", text, ctx)
 
     async def on_decision(self, decision: GuardDecision, ctx: "SessionContext") -> None:
         """Observe a final guard decision without access to raw content.

@@ -178,6 +178,14 @@ class CostLimit(BaseShield):
         # incurred. Set provider-side max tokens/timeouts as a first-line cap.
         return self._check_and_charge(ctx, cost, "output")
 
+    async def scan_memory_write(self, text: str, ctx: SessionContext) -> ShieldResult:
+        # Persisting a memory record is not a new billable/rate-limited request;
+        # the turn that produced it was already accounted for.
+        return ShieldResult(allowed=True)
+
+    async def scan_memory_read(self, text: str, ctx: SessionContext) -> ShieldResult:
+        return ShieldResult(allowed=True)
+
     async def scan_output_preview(
         self, text: str, ctx: SessionContext
     ) -> ShieldResult:

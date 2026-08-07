@@ -202,6 +202,27 @@ class AuditLogger(BaseShield):
         )
         return ShieldResult(allowed=True)
 
+    async def scan_memory_write(self, text: str, ctx: SessionContext) -> ShieldResult:
+        # Memory events get their own type rather than inheriting the
+        # tool_output event, so a poisoned-memory investigation can distinguish
+        # what was persisted from what a tool merely returned.
+        self._emit(
+            "memory_write",
+            **self._identity_fields(ctx),
+            **self._fingerprint_field("content_hash", text),
+            content_length=len(text),
+        )
+        return ShieldResult(allowed=True)
+
+    async def scan_memory_read(self, text: str, ctx: SessionContext) -> ShieldResult:
+        self._emit(
+            "memory_read",
+            **self._identity_fields(ctx),
+            **self._fingerprint_field("content_hash", text),
+            content_length=len(text),
+        )
+        return ShieldResult(allowed=True)
+
     async def on_decision(self, decision: GuardDecision, ctx: SessionContext) -> None:
         """Record blocks made anywhere in the pipeline without raw content."""
         if decision.allowed:
